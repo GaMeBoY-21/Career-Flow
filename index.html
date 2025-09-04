@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Career Flow | AI-Powered Career Co-Pilot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0f172a; 
+            color: #d1d5db; 
+        }
+        /* Lock body scroll when modal is open */
+        body.modal-open {
+            overflow: hidden;
+        }
+
+        /* Updated Background Grid */
+        .background-grid {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            --grid-size: 40px;
+            --grid-strength: 1px;
+            --grid-color: rgba(120, 120, 150, 0.1);
+            background-image:
+                /* Static grid */
+                linear-gradient(to right, var(--grid-color) var(--grid-strength), transparent var(--grid-strength)),
+                linear-gradient(to bottom, var(--grid-color) var(--grid-strength), transparent var(--grid-strength));
+            background-size:
+                var(--grid-size) var(--grid-size),
+                var(--grid-size) var(--grid-size);
+        }
+
+        .gradient-text { 
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-image:
+                radial-gradient(
+                    350px circle at var(--x, -1000px) var(--y, -1000px),
+                    rgba(110, 231, 255, 0.9) 0%, /* Bright Cyan */
+                    rgba(129, 140, 248, 0.6) 30%, /* Indigo */
+                    transparent 50%
+                ),
+                linear-gradient(to right, #a5b4fc, #c084fc, #f0abfc, #fda4af);
+            transition: background-position 0.2s ease-out;
+        }
+        .search-button { 
+            background: linear-gradient(to right, #4f46e5, #6366f1); 
+            transition: all 0.3s ease; 
+            position: relative;
+            overflow: hidden;
+        }
+        .search-button:hover:not(:disabled) { 
+            box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4); 
+            transform: translateY(-2px); 
+        }
+        .search-button:disabled { background: #3730a3; cursor: not-allowed; }
+        
+        .search-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: all 0.6s ease;
+        }
+
+        .search-button:hover::before {
+            left: 100%;
+        }
+
+        /* Card Animation Styles */
+        .card { 
+            background-color: rgba(15, 23, 42, 0.6); 
+            backdrop-filter: blur(16px); 
+            border-radius: 1rem; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); 
+            border: 1px solid #334155; 
+            transition: all 0.3s ease; 
+            position: relative;
+            overflow: hidden;
+        }
+        .card:before {
+            content: '';
+            position: absolute;
+            left: var(--x, 50%);
+            top: var(--y, 50%);
+            width: 150px;
+            height: 150px;
+            background: radial-gradient(circle closest-side, rgba(165, 180, 252, 0.15), transparent 50%);
+            transform: translate(-50%, -50%);
+            transition: width 0.3s ease, height 0.3s ease;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .card:hover:not(.personalized-roadmap-card):before {
+            opacity: 1;
+            width: 350px;
+            height: 350px;
+        }
+        .card:hover { 
+            transform: translateY(-4px); 
+            border-color: #4f46e5;
+        }
+
+        .result-card {
+             animation: fadeIn 0.5s ease-out forwards;
+             opacity: 0;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .personalized-roadmap-card {
+            position: relative;
+            background-clip: padding-box; /* Important for border-radius */
+            overflow: visible; /* Fix for the flickering bug on scroll */
+        }
+
+        .personalized-roadmap-card::before {
+            content: '';
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            z-index: -1;
+            margin: -2px; /* Border width */
+            border-radius: inherit; /* Match parent */
+            background: conic-gradient(from 180deg at 50% 50%, #a5b4fc, #c084fc, #f0abfc, #fda4af, #a5b4fc);
+            animation: rotate 4s linear infinite;
+        }
+
+        @keyframes rotate {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+
+        ::-webkit-scrollbar { width: 10px; } ::-webkit-scrollbar-track { background: #1e293b; } ::-webkit-scrollbar-thumb { background: #475569; border-radius: 5px; } ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .autocomplete-item { padding: 0.85rem 1.25rem; cursor: pointer; transition: background-color 0.2s ease; color: #e2e8f0; }
+        .autocomplete-item:hover, .autocomplete-active { background-color: #334155; }
+        
+        .nav-link { 
+            transition: all 0.2s ease-in-out; 
+            position: relative;
+            padding: 8px 12px;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .nav-link:before {
+             content: '';
+            position: absolute;
+            left: var(--x, 50%);
+            top: var(--y, 50%);
+            width: 0px;
+            height: 0px;
+            background: radial-gradient(circle closest-side, rgba(165, 180, 252, 0.2), transparent 40%);
+            transform: translate(-50%, -50%);
+            transition: width 0.2s ease, height 0.2s ease, opacity 0.2s ease;
+            pointer-events: none;
+            opacity: 0;
+            border-radius: inherit;
+        }
+         .nav-link:hover:before {
+            opacity: 1;
+            width: 200px;
+            height: 200px;
+        }
+        .nav-link:hover { color: #e0e7ff; transform: translateY(-2px); }
+        
+        #header-title:hover { cursor: pointer; }
+        .modal-overlay { background-color: rgba(15, 23, 42, 0.7); backdrop-filter: blur(8px); }
+        .modal-box { background: #1e293b; transition: transform 0.3s ease, opacity 0.3s ease; transform: scale(0.95); opacity: 0; }
+        .modal-container:not(.hidden) .modal-box { transform: scale(1); opacity: 1; }
+        .modal-content h3 { font-size: 1.25rem; font-weight: 600; color: #c7d2fe; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+        .modal-content ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        .action-button { background-color: #4f46e520; color: #c7d2fe; border: 1px solid #4f46e580; transition: all 0.2s ease; }
+        .action-button:hover { background-color: #4f46e560; border-color: #a5b4fc; }
+        
+        /* --- Styles for Animated Border on Personalization Button --- */
+        #startPersonalizationBtn {
+            position: relative;
+            z-index: 0;
+            overflow: hidden;
+            padding: 2px;
+            border: none;
+            background: transparent;
+            border-radius: 9999px;
+        }
+
+        #startPersonalizationBtn::before {
+            content: '';
+            position: absolute;
+            z-index: -2;
+            left: -50%;
+            top: -50%;
+            width: 200%;
+            height: 200%;
+            background-repeat: no-repeat;
+            background-position: 0 0;
+            background-image: conic-gradient(#a5b4fc, #c084fc, #f0abfc, #fda4af, #a5b4fc);
+            animation: rotate 4s linear infinite;
+        }
+
+        #startPersonalizationBtn::after {
+            content: '';
+            position: absolute;
+            z-index: -1;
+            left: 2px;
+            top: 2px;
+            width: calc(100% - 4px);
+            height: calc(100% - 4px);
+            background: #0f172a; /* Match body bg for a seamless look */
+            border-radius: inherit;
+        }
+        
+        #startPersonalizationBtn .content-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            position: relative;
+            z-index: 1;
+            background-color: #4f46e520;
+            border-radius: 9999px;
+            transition: background-color 0.2s ease;
+        }
+
+        #startPersonalizationBtn:hover .content-wrapper {
+            background-color: #4f46e560;
+        }
+        /* --- End Animated Border Styles --- */
+
+        .quiz-step input[type="radio"], .quiz-step input[type="checkbox"] { transform: translateY(2px); }
+        .quiz-option-selected {
+            border-color: #6366f1;
+            background-color: rgba(99, 102, 241, 0.1);
+        }
+
+        #wait-toast {
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+        /* Keep header and nav interactive during generation */
+        header, nav {
+            position: relative;
+            z-index: 40;
+        }
+
+        /* Enhanced Glassmorphism Effect for Inputs */
+        .glass-input {
+            background-color: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.075);
+        }
+    </style>
+</head>
+<body class="text-slate-300">
+    <div class="background-grid"></div>
+    <div class="container mx-auto px-4 py-8 md:py-12">
+        <header class="text-center mb-12">
+            <h1 id="header-title" class="text-4xl md:text-5xl lg:text-6xl font-extrabold gradient-text">Career Flow</h1>
+            <p class="mt-3 text-base md:text-lg text-slate-400 max-w-2xl mx-auto">Your AI-Powered Career Co-Pilot</p>
+        </header>
+        <nav class="flex justify-center items-center gap-4 md:gap-10 mb-10"><a href="#" id="aboutLink" class="nav-link text-slate-400 font-medium text-sm md:text-base">About</a><a href="#" id="howItWorksLink" class="nav-link text-slate-400 font-medium text-sm md:text-base">How It Works</a><a href="#" id="featuresLink" class="nav-link text-slate-400 font-medium text-sm md:text-base">Features</a></nav>
+        
+        <div id="main-content-wrapper">
+            <div id="input-container" class="relative w-full max-w-2xl mx-auto mb-12">
+                <div id="single-path-container" class="space-y-4">
+                    <div class="relative">
+                        <div class="w-full p-2 md:p-4 rounded-full shadow-lg flex items-center glass-input">
+                            <i data-lucide="search" class="w-5 h-5 md:w-6 md:h-6 text-slate-500 ml-3"></i>
+                            <input type="text" id="roleInput" class="flex-grow p-2 md:p-3 border-0 rounded-full focus:ring-0 focus:outline-none text-base md:text-lg bg-transparent text-slate-200 placeholder:slate-500" placeholder="e.g., AI Engineer, Product Manager..." autocomplete="off">
+                        </div>
+                        <div id="autocomplete-list" class="absolute top-full left-0 right-0 mt-2 bg-slate-800 border border-slate-700 rounded-2xl shadow-lg z-10 hidden overflow-hidden"></div>
+                    </div>
+                </div>
+                <div class="flex justify-center mt-6"><button id="searchBtn" class="search-button text-white font-semibold py-3 px-8 rounded-full flex items-center gap-3 text-base md:text-lg"><span id="button-text">Find Path</span><i id="button-icon" data-lucide="sparkles" class="w-5 h-5"></i></button></div>
+                <div id="validation-message" class="text-center text-amber-400 text-sm mt-4 hidden"></div>
+            </div>
+
+            <div id="homeContent" class="w-full max-w-5xl mx-auto space-y-12"><div class="text-center"><h2 class="text-2xl md:text-3xl font-bold text-slate-100 mb-4">Navigate Your Career with AI Precision</h2><p class="text-base md:text-lg text-slate-400 max-w-3xl mx-auto">Go beyond a simple roadmap. Get project ideas, study plans, and interview prep to accelerate your journey from learner to earner.</p></div><div class="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 text-center"><div class="card p-4 md:p-6"><i data-lucide="keyboard" class="w-10 h-10 md:w-12 md:h-12 text-indigo-400 mx-auto mb-4"></i><h3 class="text-lg md:text-xl font-semibold text-slate-100 mb-2">1. Enter a Role</h3><p class="text-slate-400 text-sm md:text-base">Tell us your career goal and existing skills.</p></div><div class="card p-4 md:p-6"><i data-lucide="bot" class="w-10 h-10 md:w-12 md:h-12 text-indigo-400 mx-auto mb-4"></i><h3 class="text-lg md:text-xl font-semibold text-slate-100 mb-2">2. AI Co-Pilot Generates</h3><p class="text-slate-400 text-sm md:text-base">Our AI builds a complete action plan for you.</p></div><div class="card p-4 md:p-6"><i data-lucide="rocket" class="w-10 h-10 md:w-12 md:h-12 text-indigo-400 mx-auto mb-4"></i><h3 class="text-lg md:text-xl font-semibold text-slate-100 mb-2">3. Accelerate Your Path</h3><p class="text-slate-400 text-sm md:text-base">Use your plan, projects, and prep to succeed.</p></div></div></div>
+
+            <div id="results" class="w-full max-w-5xl mx-auto space-y-8 hidden"><div id="error" class="card bg-red-900/50 border-red-700 text-red-300 p-4 md:p-6 hidden flex items-center gap-4" role="alert"><i data-lucide="alert-triangle" class="w-8 h-8 text-red-400"></i><div><strong class="font-bold">An Error Occurred!</strong><p id="errorMessage">Something went wrong.</p></div></div>
+                <div id="content" class="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+                    <div id="pdf-content" class="lg:col-span-2 space-y-8">
+                        <div id="roleInfoCard" class="card result-card p-4 md:p-6" style="animation-delay: 0s;">
+                            <div class="flex items-center gap-4 mb-4"><i data-lucide="briefcase" class="w-8 h-8 text-indigo-400"></i><h2 class="text-xl md:text-2xl font-bold text-slate-100">About the Role: <span id="roleTitle" class="gradient-text"></span></h2></div>
+                            <p id="roleInfo" class="text-slate-400 leading-relaxed"></p>
+                            <div id="actionButtons" class="mt-6 pt-4 border-t border-slate-700 flex flex-wrap gap-3 md:gap-4 hidden">
+                                <button id="suggestProjectsBtn" class="action-button font-semibold py-2 px-4 rounded-full flex items-center gap-2 text-xs md:text-sm"><i data-lucide="lightbulb" class="w-4 h-4"></i>Suggest Portfolio Projects</button>
+                                <button id="interviewPrepBtn" class="action-button font-semibold py-2 px-4 rounded-full flex items-center gap-2 text-xs md:text-sm"><i data-lucide="shield-check" class="w-4 h-4"></i>Prep for Interview</button>
+                            </div>
+                        </div>
+                        <div id="roadmapCard" class="card result-card p-4 md:p-6" style="animation-delay: 0.1s;">
+                            <div id="roadmapHeader">
+                                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 flex-wrap">
+                                    <div class="flex items-center gap-4"><i data-lucide="map" class="w-8 h-8 text-indigo-400"></i><h2 id="roadmapTitle" class="text-xl md:text-2xl font-bold text-slate-100">Learning Roadmap</h2></div>
+                                    <button id="downloadPdfBtn" class="bg-indigo-500/50 text-indigo-100 text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2 hover:bg-indigo-500 transition-colors w-full sm:w-auto"><i data-lucide="download" class="w-4 h-4"></i><span>Download PDF</span></button>
+                                </div>
+                            </div>
+                            <div id="timelineAnalysis" class="hidden mb-6 p-4 rounded-lg"></div>
+                            <div id="learningPath" class="space-y-4"></div>
+                        </div>
+                    </div>
+                    <div id="sidebar-content" class="space-y-8">
+                        <div id="jobsCard" class="card result-card p-4 md:p-6 hidden" style="animation-delay: 0.2s;">
+                            <div class="flex items-center gap-4 mb-4">
+                                <i data-lucide="briefcase" class="w-8 h-8 text-indigo-400"></i>
+                                <h2 class="text-xl md:text-2xl font-bold text-slate-100">Latest Jobs</h2>
+                            </div>
+                            <select id="countrySelect" class="w-full p-2 rounded-md bg-slate-700 border border-slate-600 text-slate-300 focus:ring-indigo-500 focus:border-indigo-500 mb-4">
+                                </select>
+                            <div id="jobPostings" class="space-y-4"></div>
+                        </div>
+                        <div id="personalizationCard" class="card result-card p-4 md:p-6 hidden" style="animation-delay: 0.2s;"><div class="flex items-center gap-4 mb-4"><i data-lucide="user-check" class="w-8 h-8 text-indigo-400"></i><h2 class="text-xl md:text-2xl font-bold text-slate-100">Personalized Co-Pilot</h2></div><p class="text-slate-400 text-sm mb-4">Answer a few questions to get a roadmap tailored to your experience, learning style, and goals.</p><button id="startPersonalizationBtn" class="w-full font-semibold text-sm rounded-full"><div class="content-wrapper"><i data-lucide="wand-2" class="w-4 h-4"></i><span>Start Personalization</span></div></button></div>
+                        <div id="githubCard" class="card result-card p-4 md:p-6" style="animation-delay: 0.3s;"><div class="flex items-center gap-4 mb-4"><i data-lucide="github" class="w-8 h-8 text-indigo-400"></i><h2 class="text-xl md:text-2xl font-bold text-slate-100">GitHub Projects</h2></div><div id="githubRepos" class="space-y-3"></div></div>
+                        <div id="professionalsCard" class="card result-card p-4 md:p-6" style="animation-delay: 0.4s;"><div class="flex items-center gap-4 mb-4"><i data-lucide="users" class="w-8 h-8 text-indigo-400"></i><h2 class="text-xl md:text-2xl font-bold text-slate-100">Top Professionals</h2></div><div id="professionals" class="space-y-3"></div></div>
+                        <div id="resourcesCard" class="card result-card p-4 md:p-6" style="animation-delay: 0.5s;"><div class="flex items-center gap-4 mb-4"><i data-lucide="book-open" class="w-8 h-8 text-indigo-400"></i><h2 class="text-xl md:text-2xl font-bold text-slate-100">Helpful Resources</h2></div><div id="resources" class="space-y-3"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="content-blocker-overlay" class="fixed inset-0 bg-transparent z-30 hidden"></div>
+
+    <div id="infoModal" class="modal-container fixed inset-0 z-50 flex items-center justify-center p-4 hidden"><div class="modal-overlay fixed inset-0"></div><div class="modal-box relative w-full max-w-4xl max-h-[80vh] mx-auto rounded-2xl shadow-lg border border-slate-700 flex flex-col"><header class="flex items-center justify-between p-4 border-b border-slate-700"><h3 id="infoModalTitle" class="text-xl font-bold text-slate-100"></h3><button class="info-modal-close p-2 rounded-full hover:bg-slate-700"><i data-lucide="x" class="w-6 h-6 text-slate-400"></i></button></header><div id="infoModalBody" class="modal-content p-4 md:p-6 overflow-y-auto text-slate-300 leading-relaxed"></div></div></div>
+    <div id="aiFeatureModal" class="modal-container fixed inset-0 z-50 flex items-center justify-center p-4 hidden"><div class="modal-overlay fixed inset-0"></div><div class="modal-box relative w-full max-w-3xl max-h-[80vh] mx-auto rounded-2xl shadow-lg border border-slate-700 flex flex-col"><header class="flex items-center justify-between p-4 border-b border-slate-700"><h3 id="aiFeatureModalTitle" class="text-xl font-bold text-slate-100"></h3><div class="flex items-center"><button id="downloadAiFeaturePdfBtn" class="bg-indigo-600/50 text-indigo-200 text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2 hover:bg-indigo-600 transition-colors mr-2 hidden"><i data-lucide="download" class="w-4 h-4"></i><span>PDF</span></button><button class="ai-feature-modal-close p-2 rounded-full hover:bg-slate-700"><i data-lucide="x" class="w-6 h-6 text-slate-400"></i></button></div></header><div id="aiFeatureModalBody" class="modal-content p-4 md:p-6 overflow-y-auto text-slate-300 leading-relaxed"><div id="aiFeatureModalLoading" class="text-center"><div class="flex flex-col justify-center items-center gap-4"><div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-400"></div><span class="text-md font-medium text-slate-400">Your AI Co-Pilot is thinking...</span></div></div><div id="aiFeatureModalContent"></div></div></div></div>
+    
+    <div id="personalizationModal" class="modal-container fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-overlay fixed inset-0"></div>
+        <div class="modal-box relative w-full max-w-2xl max-h-[80vh] mx-auto rounded-2xl shadow-lg border border-slate-700 flex flex-col">
+            <header class="flex items-center justify-between p-4 border-b border-slate-700">
+                <h3 class="text-xl font-bold text-slate-100">Personalize Your Roadmap</h3>
+                <button class="personalization-modal-close p-2 rounded-full hover:bg-slate-700"><i data-lucide="x" class="w-6 h-6 text-slate-400"></i></button>
+            </header>
+            <div id="personalizationModalBody" class="modal-content p-4 md:p-6 overflow-y-auto">
+                <div id="quiz-loading" class="text-center hidden">
+                    <div class="flex flex-col justify-center items-center gap-4">
+                        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-400"></div>
+                        <span class="text-md font-medium text-slate-400">Generating personalized questions...</span>
+                    </div>
+                </div>
+                <div id="dynamic-quiz-container"></div>
+            </div>
+            <footer id="quiz-footer" class="mt-auto p-4 border-t border-slate-700 flex justify-between items-center hidden">
+                <div>
+                    <button id="quizBackBtn" class="action-button font-semibold py-2 px-5 rounded-full hidden">Back</button>
+                </div>
+                <div>
+                    <button id="quizNextBtn" class="search-button text-white font-semibold py-2 px-5 rounded-full">Next</button>
+                    <button id="generatePersonalizedBtn" class="search-button text-white font-semibold py-2 px-5 rounded-full hidden">Generate My Path</button>
+                </div>
+            </footer>
+        </div>
+    </div>
+    
+    <div id="wait-toast" class="fixed top-5 left-1/2 -translate-x-1/2 bg-indigo-600 text-white px-6 py-3 rounded-full shadow-lg z-[100]">
+        Please wait, the AI is generating your path...
+    </div>
+
+    <script>
+        lucide.createIcons();
+        
+        // --- API Keys have been REMOVED from the frontend for security ---
+        // They are now handled by serverless functions and stored in Vercel Environment Variables.
+        // We keep this variable to check if the user wants the feature enabled.
+        const jsearchFeatureEnabled = true;
+
+        const countries = [
+            { name: "Worldwide", code: "" }, { name: "United States", code: "United States" }, 
+            { name: "United Kingdom", code: "United Kingdom" }, { name: "Canada", code: "Canada" },
+            { name: "Australia", code: "Australia" }, { name: "Germany", code: "Germany" },
+            { name: "France", code: "France" }, { name: "India", code: "India" }
+        ];
+
+        let currentRoadmapData = null;
+        let currentRole = "";
+        let isPersonalizedGlobal = false;
+        let cachedProjects = null;
+        let cachedInterviewPrep = null;
+        let currentQuizStep = 1;
+        let totalQuizSteps = 0;
+
+        // --- Element Selectors ---
+        const searchBtn = document.getElementById('searchBtn');
+        const roleInput = document.getElementById('roleInput');
+        const resultsDiv = document.getElementById('results');
+        const errorDiv = document.getElementById('error');
+        const errorMessage = document.getElementById('errorMessage');
+        const contentDiv = document.getElementById('content');
+        const homeContent = document.getElementById('homeContent');
+        const headerTitle = document.getElementById('header-title');
+        const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+        const roleTitle = document.getElementById('roleTitle');
+        const roleInfo = document.getElementById('roleInfo');
+        const learningPath = document.getElementById('learningPath');
+        const professionals = document.getElementById('professionals');
+        const githubRepos = document.getElementById('githubRepos');
+        const resources = document.getElementById('resources');
+        const jobPostings = document.getElementById('jobPostings');
+        const jobsCard = document.getElementById('jobsCard');
+        const actionButtons = document.getElementById('actionButtons');
+        const roadmapCard = document.getElementById('roadmapCard');
+        const roadmapHeader = document.getElementById('roadmapHeader');
+        const validationMessage = document.getElementById('validation-message');
+        const timelineAnalysis = document.getElementById('timelineAnalysis');
+        const mainContentWrapper = document.getElementById('main-content-wrapper');
+        const contentBlockerOverlay = document.getElementById('content-blocker-overlay');
+        
+        const aiFeatureModal = document.getElementById('aiFeatureModal');
+        const aiFeatureModalTitle = document.getElementById('aiFeatureModalTitle');
+        const aiFeatureModalContent = document.getElementById('aiFeatureModalContent');
+        const aiFeatureModalLoading = document.getElementById('aiFeatureModalLoading');
+        const suggestProjectsBtn = document.getElementById('suggestProjectsBtn');
+        const interviewPrepBtn = document.getElementById('interviewPrepBtn');
+        const downloadAiFeaturePdfBtn = document.getElementById('downloadAiFeaturePdfBtn');
+        
+        const infoModal = document.getElementById('infoModal');
+        const infoModalTitle = document.getElementById('infoModalTitle');
+        const infoModalBody = document.getElementById('infoModalBody');
+        const aboutLink = document.getElementById('aboutLink');
+        const howItWorksLink = document.getElementById('howItWorksLink');
+        const featuresLink = document.getElementById('featuresLink');
+
+        const personalizationCard = document.getElementById('personalizationCard');
+        const startPersonalizationBtn = document.getElementById('startPersonalizationBtn');
+        const personalizationModal = document.getElementById('personalizationModal');
+        const dynamicQuizContainer = document.getElementById('dynamic-quiz-container');
+        const quizLoading = document.getElementById('quiz-loading');
+        const quizFooter = document.getElementById('quiz-footer');
+        const quizBackBtn = document.getElementById('quizBackBtn');
+        const quizNextBtn = document.getElementById('quizNextBtn');
+        const generatePersonalizedBtn = document.getElementById('generatePersonalizedBtn');
+        const countrySelect = document.getElementById('countrySelect');
+
+        const autocompleteList = document.getElementById('autocomplete-list');
+        const popularRoles = [
+            "Software Engineer", "Frontend Developer", "Backend Developer", "Full Stack Developer", "Mobile App Developer", "iOS Developer", "Android Developer", "DevOps Engineer", "Site Reliability Engineer (SRE)", "Cloud Engineer", "Solutions Architect", "Game Developer", "Embedded Systems Engineer", "AR/VR Developer", "QA Engineer", "Automation Engineer", "Blockchain Developer", "Systems Administrator", "Network Engineer", "Firmware Engineer", "MLOps Engineer", "Robotics Engineer",
+            "Data Scientist", "Data Analyst", "Data Engineer", "Machine Learning Engineer", "AI Engineer", "Business Intelligence (BI) Developer", "Database Administrator (DBA)", "AI Research Scientist", "Data Architect", "Quantitative Analyst", "Statistician", "Decision Scientist", "Data Governance Specialist",
+            "UX/UI Designer", "Product Designer", "User Experience Researcher", "Graphic Designer", "Interaction Designer", "Motion Designer", "Industrial Designer", "Visual Designer", "Illustrator", "UI/UX Writer", "Design Systems Manager", "Creative Technologist", "3D Artist",
+            "Product Manager", "Technical Product Manager", "Product Owner", "Associate Product Manager", "Growth Product Manager", "Product Marketing Manager", "Product Analyst", "Head of Product",
+            "Cybersecurity Analyst", "Information Security Engineer", "Ethical Hacker", "Penetration Tester", "Security Architect", "Cloud Security Engineer", "SOC Analyst", "Incident Responder", "Cryptographer", "Chief Information Security Officer (CISO)",
+            "Business Analyst", "Financial Analyst", "Management Consultant", "Accountant", "Investment Banker", "Actuary", "Economist", "Auditor", "Controller", "Venture Capitalist", "Private Equity Associate", "Trader", "Risk Analyst", "Mergers & Acquisitions (M&A) Analyst", "Credit Analyst",
+            "Digital Marketing Manager", "Content Strategist", "SEO Specialist", "Social Media Manager", "Growth Hacker", "E-commerce Manager", "Affiliate Marketing Manager", "Sales Development Representative (SDR)", "Account Executive", "Brand Manager", "Marketing Analyst", "Public Relations Specialist", "Customer Success Manager", "Chief Marketing Officer (CMO)",
+            "Registered Nurse", "Physician Assistant", "Physical Therapist", "Occupational Therapist", "Speech-Language Pathologist", "Medical Doctor", "Surgeon", "Anesthesiologist", "Dentist", "Pharmacist", "Healthcare Administrator", "Biomedical Engineer", "Medical Laboratory Scientist", "Radiologist", "Optometrist", "Veterinarian", "Chiropractor",
+            "Content Writer", "Copywriter", "Journalist", "Video Editor", "Animator", "Art Director", "Photographer", "Filmmaker", "Sound Designer", "Creative Director", "Technical Writer", "Podcast Producer", "Digital Asset Manager",
+            "Operations Manager", "Supply Chain Analyst", "Human Resources Manager", "Recruiter", "Project Manager", "Scrum Master", "Logistics Manager", "Chief Operating Officer (COO)", "Talent Acquisition Specialist", "Compensation and Benefits Manager", "Organizational Development Specialist",
+            "Research Scientist", "Biologist", "Chemist", "Physicist", "Geologist", "Environmental Scientist", "Astrophysicist", "Microbiologist", "Geneticist", "Marine Biologist", "Lab Technician",
+            "Teacher", "Professor", "Instructional Designer", "Curriculum Developer", "School Principal", "Corporate Trainer", "Academic Advisor", "Admissions Counselor", "Librarian",
+            "Lawyer", "Paralegal", "Judge", "Legal Secretary", "Compliance Officer", "Corporate Counsel", "Intellectual Property (IP) Lawyer", "Contracts Manager",
+            "Mechanical Engineer", "Electrical Engineer", "Civil Engineer", "Aerospace Engineer", "Chemical Engineer", "Materials Engineer", "Petroleum Engineer", "Surveyor", "Industrial Engineer",
+            "Electrician", "Plumber", "Welder", "Carpenter", "HVAC Technician", "Auto Mechanic", "Machinist", "Construction Worker",
+            "Architect", "Interior Designer", "Urban Planner", "Real Estate Agent", "Real Estate Appraiser", "Construction Manager", "Landscape Architect", "Property Manager",
+            "Social Worker", "Psychologist", "Counselor", "Nonprofit Program Manager", "Fundraising Manager", "Community Organizer", "Career Counselor",
+            "Hotel Manager", "Chef", "Sommelier", "Event Planner", "Travel Agent", "Flight Attendant", "Restaurant Manager", "Tour Guide",
+            "Pilot", "Air Traffic Controller", "Flight Engineer", "Urban Mobility Planner", "Logistics Coordinator", "Public Transit Operator",
+            "Police Officer", "Firefighter", "Paramedic", "Diplomat", "Policy Advisor", "Intelligence Analyst", "Public Affairs Specialist",
+            "Agronomist", "Conservation Scientist", "Forest Ranger", "Agricultural Engineer", "Food Scientist", "Horticulturist",
+            "Actor", "Musician", "Dancer", "Museum Curator", "Archivist", "Fine Artist", "Fashion Designer",
+            "Athletic Trainer", "Coach", "Sports Analyst", "Fitness Instructor", "Physical Education Teacher", "Scout"
+        ];
+        let activeAutocompleteIndex = -1;
+
+        const waitToast = document.getElementById('wait-toast');
+
+        // --- API Functions (Now calling our secure serverless functions) ---
+        async function callGeminiAPI(prompt, isJson = true) {
+            try {
+                // Call our own secure function at /api/getCareerPath
+                const response = await fetch('/api/getCareerPath', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'The request to our server failed.');
+                }
+                
+                if (!data.candidates || data.candidates.length === 0) {
+                     if(data.promptFeedback && data.promptFeedback.blockReason){
+                        throw new Error(`The prompt was blocked for reason: ${data.promptFeedback.blockReason}.`);
+                    }
+                    throw new Error("Received no candidates in the response.");
+                }
+                
+                const candidate = data.candidates[0];
+
+                if (!candidate.content || !candidate.content.parts || !candidate.content.parts[0].text) {
+                     if(candidate.finishReason === 'SAFETY') {
+                        throw new Error("The response was blocked due to safety settings.");
+                    }
+                    throw new Error("Received an invalid response structure.");
+                }
+
+                let textContent = candidate.content.parts[0].text;
+
+                if (isJson) {
+                    const cleanedText = textContent.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
+                    if (!cleanedText) {
+                        throw new Error("The AI returned an empty JSON string.");
+                    }
+                    return JSON.parse(cleanedText);
+                } else {
+                     return textContent.replace(/^```html\s*/im, '').replace(/```\s*$/im, '');
+                }
+
+            } catch (error) {
+                console.error("API call failed:", error);
+                throw new Error(`Failed to get a response from the AI Co-Pilot. Reason: ${error.message}`);
+            }
+        }
+
+        async function fetchJobs(role, country = "") {
+            if (!jsearchFeatureEnabled) {
+                jobsCard.classList.remove('hidden');
+                jobPostings.innerHTML = `<p class="text-sm text-center text-amber-400">Job search is disabled. Set 'jsearchFeatureEnabled' to true to enable.</p>`;
+                return;
+            }
+            
+            jobsCard.classList.remove('hidden');
+            jobPostings.innerHTML = `<div class="flex justify-center items-center p-4"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-400"></div></div>`;
+
+            try {
+                // Call our own secure function at /api/getJobs
+                const response = await fetch('/api/getJobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role, country })
+                });
+                
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Could not fetch job postings.');
+                }
+
+                renderJobs(result.data);
+            } catch (error) {
+                console.error("Job search failed:", error);
+                jobPostings.innerHTML = `<p class="text-sm text-center text-slate-500">${error.message}</p>`;
+            }
+        }
+
+        // --- UI Rendering Functions (No changes needed here) ---
+        function renderUI(data, isPersonalized = false) {
+            currentRoadmapData = data;
+            currentRole = roleInput.value;
+            isPersonalizedGlobal = isPersonalized;
+
+            roleTitle.textContent = data.role_info.title;
+            roleInfo.innerHTML = data.role_info.description.replace(/\n/g, '<br>');
+            
+            renderLinkList(professionals, data.top_professionals, 'user');
+            renderLinkList(githubRepos, data.github_projects, 'github');
+            renderLinkList(resources, data.helpful_resources, 'book-open');
+            
+            timelineAnalysis.classList.toggle('hidden', !(isPersonalized && data.timeline_analysis));
+            if (isPersonalized && data.timeline_analysis) {
+                renderTimelineAnalysis(data.timeline_analysis);
+            }
+            
+            renderRoadmap(data.roadmap, isPersonalized);
+            
+            actionButtons.classList.remove('hidden');
+            contentDiv.classList.remove('hidden');
+
+            personalizationCard.classList.toggle('hidden', isPersonalized);
+        }
+        
+        function renderTimelineAnalysis(analysis) {
+            timelineAnalysis.classList.remove('bg-green-900/50', 'border-green-700', 'bg-amber-900/50', 'border-amber-700');
+
+            const icon = analysis.is_achievable ? 'check-circle-2' : 'alert-triangle';
+            const colorClass = analysis.is_achievable ? 'text-green-300' : 'text-amber-300';
+            const bgClass = analysis.is_achievable ? 'bg-green-900/50' : 'bg-amber-900/50';
+            const borderClass = analysis.is_achievable ? 'border-green-700' : 'border-amber-700';
+
+            timelineAnalysis.innerHTML = `
+                <div class="flex items-start gap-4">
+                    <i data-lucide="${icon}" class="w-6 h-6 ${colorClass} flex-shrink-0 mt-1"></i>
+                    <div>
+                        <h4 class="font-bold ${colorClass}">Timeline Analysis</h4>
+                        <p class="text-slate-400 text-sm">${analysis.summary}</p>
+                    </div>
+                </div>
+            `;
+            timelineAnalysis.classList.add(bgClass, borderClass, 'border');
+            lucide.createIcons();
+        }
+
+        function renderLinkList(element, items, icon) {
+             element.innerHTML = items.map(item => {
+                const url = item.url && (item.url.startsWith('http://') || item.url.startsWith('https://')) ? item.url : '#';
+                const name = item.name || item.title || "Unnamed Resource";
+                return `
+                <a href="${url}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 group">
+                    <i data-lucide="${icon}" class="w-4 h-4 text-indigo-400 mt-1 flex-shrink-0"></i>
+                    <span class="text-slate-400 text-sm group-hover:text-indigo-300 transition-colors">${name}</span>
+                </a>`
+             }).join('');
+            lucide.createIcons();
+        }
+        
+        function linkifyResources(text) {
+            const urlRegex = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])|(\bwww\.[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+            return text.replace(urlRegex, function(url) {
+                let fullUrl = url;
+                if (!fullUrl.startsWith('http')) {
+                    fullUrl = 'https://' + fullUrl;
+                }
+                return `<a href="${fullUrl}" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 hover:underline transition-colors">${url}</a>`;
+            });
+        }
+        
+        function renderRoadmap(roadmap, isPersonalized) {
+            roadmapCard.classList.remove('personalized-roadmap-card');
+            const existingHeader = document.getElementById('personalized-header');
+            if(existingHeader) existingHeader.remove();
+            
+            roadmapHeader.classList.remove('hidden');
+
+            if (isPersonalized) {
+                roadmapCard.classList.add('personalized-roadmap-card');
+                
+                const headerContainer = document.createElement('div');
+                headerContainer.id = 'personalized-header';
+                headerContainer.className = "flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6";
+
+                const personalizedTitle = document.createElement('h2');
+                personalizedTitle.className = "text-2xl md:text-3xl font-bold gradient-text";
+                personalizedTitle.textContent = "Your Personalized Roadmap";
+
+                const personalizedDownloadBtn = document.createElement('button');
+                personalizedDownloadBtn.className = "bg-indigo-500/50 text-indigo-100 text-sm font-semibold px-4 py-2 rounded-full flex items-center gap-2 hover:bg-indigo-500 transition-colors w-full sm:w-auto";
+                personalizedDownloadBtn.innerHTML = `<i data-lucide="download" class="w-4 h-4"></i><span>Download PDF</span>`;
+                personalizedDownloadBtn.addEventListener('click', downloadMainRoadmapPDF);
+
+                headerContainer.appendChild(personalizedTitle);
+                headerContainer.appendChild(personalizedDownloadBtn);
+
+                roadmapCard.insertBefore(headerContainer, roadmapHeader);
+                roadmapHeader.classList.add('hidden');
+                lucide.createIcons();
+            }
+
+            learningPath.innerHTML = roadmap.map((step, index) => `
+                <div class="p-4 rounded-lg border border-slate-700 bg-slate-900/30">
+                    <div class="flex justify-between items-start mb-2 flex-wrap gap-2">
+                        <h3 class="font-bold text-lg md:text-xl text-indigo-300 pr-4">${index + 1}. ${step.title}</h3>
+                        ${step.time_estimate ? `
+                            <div class="flex items-center gap-2 text-xs text-slate-400 bg-slate-700/50 px-2 py-1 rounded-full whitespace-nowrap flex-shrink-0">
+                                <i data-lucide="clock" class="w-3 h-3"></i>
+                                <span>${step.time_estimate}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                    <p class="text-slate-400 mb-3 text-sm md:text-base">${step.description}</p>
+                    <div class="text-xs md:text-sm text-slate-500 break-words"><strong>Resources:</strong> ${linkifyResources(step.resources)}</div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+        
+        function renderJobs(jobs) {
+            if (!jobs || jobs.length === 0) {
+                jobPostings.innerHTML = `<p class="text-sm text-center text-slate-500">No recent job postings found.</p>`;
+                return;
+            }
+            jobPostings.innerHTML = jobs.slice(0, 5).map(job => `
+                <a href="${job.job_apply_link}" target="_blank" rel="noopener noreferrer" class="block p-3 rounded-lg border border-transparent hover:border-slate-600 hover:bg-slate-800/50 transition-colors">
+                    <p class="font-semibold text-slate-200 truncate">${job.job_title}</p>
+                    <p class="text-sm text-slate-400">${job.employer_name}</p>
+                    <p class="text-xs text-slate-500">${job.job_city}, ${job.job_country}</p>
+                </a>
+            `).join('');
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorDiv.classList.remove('hidden');
+            contentDiv.classList.add('hidden');
+        }
+        
+        function resetUI() {
+            homeContent.classList.remove('hidden');
+            resultsDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            contentDiv.classList.add('hidden');
+            personalizationCard.classList.add('hidden');
+            jobsCard.classList.add('hidden');
+            roleInput.value = '';
+        }
+
+        // --- Main Application Logic (No changes needed here) ---
+        async function findPath(personalizationData = null, isPersonalized = false) {
+            if (searchBtn.disabled) {
+                showToast("Please wait for the current request to finish.");
+                return;
+            }
+
+            const role = roleInput.value.trim();
+            if (!role) {
+                validationMessage.textContent = "Please enter your target job role to begin.";
+                validationMessage.classList.remove('hidden');
+                return;
+            }
+            
+            // --- UI state for loading ---
+            validationMessage.classList.add('hidden');
+            searchBtn.disabled = true;
+            searchBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div><span>Generating...</span>`;
+            contentBlockerOverlay.classList.remove('hidden');
+            mainContentWrapper.classList.add('opacity-60');
+            homeContent.classList.add('hidden');
+            resultsDiv.classList.remove('hidden');
+            errorDiv.classList.add('hidden');
+            contentDiv.classList.add('hidden');
+            personalizationCard.classList.add('hidden');
+            jobsCard.classList.add('hidden');
+
+            cachedProjects = null;
+            cachedInterviewPrep = null;
+            
+            // --- Construct API Prompt ---
+            let prompt;
+            if (isPersonalized && personalizationData) {
+                let answersText = Object.entries(personalizationData).map(([key, value]) => `- ${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('\n');
+                prompt = `
+                    Generate a comprehensive, personalized career guide for a "${role}".
+                    The user has provided these answers to a detailed questionnaire:
+                    ${answersText}
+
+                    Your response MUST be a valid JSON object with REAL, and VERIFIED information.
+                    - For "roadmap" items, provide a "time_estimate" (e.g., "1-2 weeks").
+                    - For "timeline_analysis", state if their goal is realistic in their timeframe and give advice. Set "is_achievable" to true or false.
+                    - For all "resources", "top_professionals", and "github_projects", all URLs MUST be valid, active, and lead to the correct destination.
+                    - For "top_professionals", find real experts in the field. Prioritize URLs in this order: 1. LinkedIn profile, 2. X (Twitter) profile, 3. Personal website/blog.
+                    - For "github_projects", find relevant, well-maintained projects.
+                    - For "helpful_resources", provide current, high-quality articles, tutorials, or documentation.
+
+                    JSON structure:
+                    {
+                      "role_info": { "title": "...", "description": "..." },
+                      "timeline_analysis": { "is_achievable": <boolean>, "summary": "..." },
+                      "roadmap": [ { "title": "...", "description": "...", "resources": "...", "time_estimate": "..." } ],
+                      "top_professionals": [ { "name": "...", "url": "..." } ],
+                      "github_projects": [ { "name": "...", "url": "..." } ],
+                      "helpful_resources": [ { "title": "...", "url": "..." } ]
+                    }
+                `;
+            } else {
+                 prompt = `
+                    Generate a comprehensive career guide for a "${role}".
+                    Your response MUST be a valid JSON object with REAL, and VERIFIED information.
+                    - For all "resources", "top_professionals", and "github_projects", all URLs MUST be valid, active, and lead to the correct destination.
+                    - For "top_professionals", find real experts in the field. Prioritize URLs in this order: 1. LinkedIn profile, 2. X (Twitter) profile, 3. Personal website/blog.
+                    - For "github_projects", find relevant, well-maintained projects.
+                    - For "helpful_resources", provide current, high-quality articles, tutorials, or documentation.
+                    
+                    JSON structure:
+                    {
+                      "role_info": { "title": "...", "description": "..." },
+                      "roadmap": [ { "title": "...", "description": "...", "resources": "..." } ],
+                      "top_professionals": [ { "name": "...", "url": "..." } ],
+                      "github_projects": [ { "name": "...", "url": "..." } ],
+                      "helpful_resources": [ { "title": "...", "url": "..." } ]
+                    }
+                `;
+            }
+            
+            try {
+                // Fetch roadmap and jobs concurrently
+                const geminiPromise = callGeminiAPI(prompt);
+                const selectedCountry = countrySelect.value;
+                fetchJobs(role, selectedCountry);
+                
+                const roadmapData = await geminiPromise;
+                if (roadmapData) renderUI(roadmapData, isPersonalized);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                // --- Reset UI state ---
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = `<span id="button-text">Find Path</span><i id="button-icon" data-lucide="sparkles" class="w-5 h-5"></i>`;
+                contentBlockerOverlay.classList.add('hidden');
+                mainContentWrapper.classList.remove('opacity-60');
+                lucide.createIcons();
+            }
+        }
+        
+        async function handleAiFeature(type) {
+            let title = '', prompt = '', cacheKey = null;
+
+            if (type === 'projects') {
+                title = `Portfolio Project Ideas for a ${currentRole}`;
+                prompt = `Generate 5 unique and impressive portfolio project ideas for an aspiring ${currentRole}. For each project, provide a title, a 2-3 sentence description, and a list of key technologies to use. Return as a valid HTML string with <h3> for titles, <p> for descriptions, and <ul><li> for technologies.`;
+                cacheKey = 'cachedProjects';
+            } else if (type === 'interview') {
+                title = `Interview Prep for a ${currentRole}`;
+                prompt = `Generate a list of 10 common interview questions for a ${currentRole}, split between technical and behavioral questions. For each question, provide a brief, helpful tip for answering. Return the output as a valid HTML string. Use <h3> sections for "Technical Questions" and "Behavioral Questions". For each item, use this structure: <div class="mb-4"><p class="font-semibold text-slate-200">Question: [The Question]</p><p class="text-indigo-300 pl-4"><em>Tip:</em> [The Tip]</p></div>`;
+                cacheKey = 'cachedInterviewPrep';
+            }
+
+            aiFeatureModalTitle.textContent = title;
+            openModal(aiFeatureModal);
+            aiFeatureModalLoading.classList.remove('hidden');
+            aiFeatureModalContent.innerHTML = '';
+            downloadAiFeaturePdfBtn.classList.add('hidden');
+            
+            if (window[cacheKey]) {
+                aiFeatureModalContent.innerHTML = window[cacheKey];
+                aiFeatureModalLoading.classList.add('hidden');
+                downloadAiFeaturePdfBtn.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const result = await callGeminiAPI(prompt, false);
+                aiFeatureModalContent.innerHTML = result;
+                window[cacheKey] = result;
+                downloadAiFeaturePdfBtn.classList.remove('hidden');
+            } catch (error) {
+                aiFeatureModalContent.innerHTML = `<p class="text-red-400">Error generating content: ${error.message}</p>`;
+            } finally {
+                aiFeatureModalLoading.classList.add('hidden');
+            }
+        }
+
+        // --- PDF Generation ---
+        function downloadMainRoadmapPDF() {
+            if (!currentRoadmapData) return;
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            let y = 20;
+            const pageHeight = doc.internal.pageSize.height;
+            const margin = 15;
+            const contentWidth = doc.internal.pageSize.width - margin * 2;
+
+            doc.setFontSize(22);
+            doc.text(`Career Roadmap: ${currentRole}`, margin, y);
+            y += 15;
+
+            doc.setFontSize(16);
+            doc.text("About the Role", margin, y);
+            y += 8;
+            doc.setFontSize(10);
+            const roleLines = doc.splitTextToSize(roleInfo.innerText, contentWidth);
+            doc.text(roleLines, margin, y);
+            y += roleLines.length * 5 + 10;
+            
+            if (isPersonalizedGlobal && currentRoadmapData.timeline_analysis) {
+                 if (y > pageHeight - 40) { doc.addPage(); y = margin; }
+                doc.setFontSize(16);
+                doc.text("Timeline Analysis", margin, y);
+                y += 8;
+                doc.setFontSize(10);
+                const analysisLines = doc.splitTextToSize(currentRoadmapData.timeline_analysis.summary, contentWidth);
+                doc.text(analysisLines, margin, y);
+                y += analysisLines.length * 5 + 10;
+            }
+
+            doc.setFontSize(16);
+            doc.text("Learning Roadmap", margin, y);
+            y += 10;
+            
+            currentRoadmapData.roadmap.forEach((step, index) => {
+                if (y > pageHeight - 40) { doc.addPage(); y = margin; }
+                doc.setFontSize(12);
+                doc.setFont(undefined, 'bold');
+                doc.text(`${index + 1}. ${step.title}`, margin, y);
+                y += 6;
+                doc.setFont(undefined, 'normal');
+                doc.setFontSize(10);
+                const descLines = doc.splitTextToSize(step.description, contentWidth);
+                doc.text(descLines, margin, y);
+                y += descLines.length * 4 + 4;
+                const resLines = doc.splitTextToSize(`Resources: ${step.resources}`, contentWidth);
+                doc.text(resLines, margin, y);
+                y += resLines.length * 4 + 10;
+            });
+            
+            const fileName = `${isPersonalizedGlobal ? 'Personalized_' : ''}${currentRole.replace(/\s+/g, '_')}_Roadmap.pdf`;
+            doc.save(fileName);
+        }
+
+        function downloadAiFeaturePDF() {
+            const title = aiFeatureModalTitle.textContent;
+            const content = aiFeatureModalContent.innerText;
+            if (!content) return;
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const margin = 15;
+            
+            doc.setFontSize(18);
+            doc.text(title, margin, 20);
+
+            doc.setFontSize(10);
+            const lines = doc.splitTextToSize(content, doc.internal.pageSize.width - margin * 2);
+            doc.text(lines, margin, 35);
+            
+            doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
+        }
+        
+        // --- Modals and UI Helpers (No changes needed here) ---
+        function openModal(modalElement) {
+            modalElement.classList.remove('hidden');
+            document.body.classList.add('modal-open');
+        }
+
+        function closeModal(modalElement) {
+            modalElement.classList.add('hidden');
+            document.body.classList.remove('modal-open');
+        }
+
+        function showInfoModal(type) {
+            let title = '', content = '';
+            if (type === 'about') {
+                title = 'About Career Flow';
+                content = `<p class="mb-4">Career Flow is your personal AI co-pilot, designed to demystify the path to your dream career. In a world of endless information, we provide clarity and direction.</p><p>Our goal is to transform your ambition into an actionable plan, helping you navigate from learning to earning with confidence. Whether you're starting fresh, switching careers, or upskilling, Career Flow provides the tailored guidance you need to succeed.</p>`;
+            } else if (type === 'how') {
+                title = 'How It Works';
+                content = `<h3 class="gradient-text">Getting your career plan is simple:</h3><ul><li class="mb-2"><strong>Step 1: Enter Your Goal:</strong> Tell the AI what career you're aiming for. You can also mention any skills you already possess to give it more context.</li><li class="mb-2"><strong>Step 2: Generate Your Path:</strong> With a single click, our AI analyzes your goal and generates a comprehensive roadmap, complete with learning steps, resources, and key milestones.</li><li><strong>Step 3: Personalize & Enhance:</strong> Use the Co-Pilot feature on the results page to answer tailored questions. The AI will then refine your roadmap into a truly personalized plan. You can also generate portfolio project ideas and interview prep questions to get fully job-ready.</li></ul>`;
+            } else if (type === 'features') {
+                title = 'Our Features';
+                content = `<ul><li class="mb-2"><strong>AI-Powered Roadmaps:</strong> Instantly get a structured, step-by-step learning path for any career.</li><li class="mb-2"><strong>Personalized Co-Pilot:</strong> Go deeper with a guided questionnaire that tailors the roadmap to your specific background, goals, and timeline.</li><li class="mb-2"><strong>Timeline Analysis:</strong> See if your career goals are realistic within your desired timeframe and get actionable advice.</li><li class="mb-2"><strong>Portfolio Project Suggestions:</strong> Generate unique project ideas relevant to your target role to build a standout portfolio.</li><li class="mb-2"><strong>Interview Prep:</strong> Get a list of common technical and behavioral questions to practice and ace your interviews.</li><li><strong>Curated Resources:</strong> Each step of your roadmap comes with links to high-quality learning materials, top professionals to follow, and relevant open-source projects.</li></ul>`;
+            }
+
+            infoModalTitle.textContent = title;
+            infoModalBody.innerHTML = content;
+            openModal(infoModal);
+        }
+
+        // --- Autocomplete Logic (No changes needed here) ---
+        function showAutocomplete(query) {
+            activeAutocompleteIndex = -1;
+            const lowerCaseQuery = query.toLowerCase();
+            if (!lowerCaseQuery) {
+                autocompleteList.classList.add('hidden');
+                return;
+            }
+            const filteredRoles = popularRoles.filter(role => role.toLowerCase().includes(lowerCaseQuery))
+                .sort((a, b) => {
+                    const aLower = a.toLowerCase(), bLower = b.toLowerCase();
+                    const aStartsWith = aLower.startsWith(lowerCaseQuery);
+                    const bStartsWith = bLower.startsWith(lowerCaseQuery);
+                    if (aStartsWith && !bStartsWith) return -1;
+                    if (!aStartsWith && bStartsWith) return 1;
+                    return aLower.localeCompare(bLower);
+                });
+
+            if (filteredRoles.length === 0) {
+                autocompleteList.classList.add('hidden'); return;
+            }
+            autocompleteList.innerHTML = filteredRoles.slice(0, 7).map(role => `<div class="autocomplete-item">${role}</div>`).join('');
+            autocompleteList.classList.remove('hidden');
+            
+            document.querySelectorAll('.autocomplete-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    roleInput.value = item.textContent;
+                    autocompleteList.classList.add('hidden');
+                });
+            });
+        }
+        
+        function updateAutocompleteActive() {
+            const items = document.querySelectorAll('.autocomplete-item');
+            items.forEach((item, index) => item.classList.toggle('autocomplete-active', index === activeAutocompleteIndex));
+        }
+
+        // --- Personalization Quiz Logic (No changes needed here) ---
+        async function generatePersonalizedQuestions() {
+            quizLoading.classList.remove('hidden');
+            dynamicQuizContainer.innerHTML = '';
+            quizFooter.classList.add('hidden');
+            const role = roleInput.value.trim();
+
+            const prompt = `
+                Generate 8-10 insightful questions for a user becoming a "${role}" to understand their background, goals, and learning style.
+                For each question, specify if it should be single-choice or multiple-choice.
+                - Use type: "single" for questions where only one answer is appropriate (like experience level).
+                - Use type: "multiple" for questions where multiple answers are possible (like interests).
+                - ALWAYS include this final question as a "single" choice type:
+                { "question_text": "What is your target timeframe to be job-ready?", "options": ["Less than 3 months", "3-6 months", "6-12 months", "More than a year"], "type": "single" }
+
+                Return a valid JSON object: { "questions": [ { "question_text": "...", "options": [...], "type": "single|multiple" } ] }
+            `;
+            try {
+                const data = await callGeminiAPI(prompt);
+                if (data && data.questions) {
+                    renderPersonalizedQuestions(data.questions);
+                } else {
+                    throw new Error("Could not generate questions.");
+                }
+            } catch (error) {
+                 dynamicQuizContainer.innerHTML = `<p class="text-red-400">Could not generate questions. Please try again.</p>`;
+            } finally {
+                quizLoading.classList.add('hidden');
+            }
+        }
+
+        function renderPersonalizedQuestions(questions) {
+            totalQuizSteps = questions.length;
+            dynamicQuizContainer.innerHTML = questions.map((q, index) => {
+                const step = index + 1;
+                const inputType = q.type === 'single' ? 'radio' : 'checkbox';
+                const optionsHtml = q.options.map((option) => `
+                    <label class="block p-4 rounded-lg border border-slate-600 hover:border-indigo-500 cursor-pointer transition-colors">
+                        <input type="${inputType}" name="q${step}" value="${option}" class="mr-3 accent-indigo-500" data-question="${q.question_text}">
+                        <span>${option}</span>
+                    </label>
+                `).join('');
+                
+                return `<div class="quiz-step ${step === 1 ? '' : 'hidden'}" data-step="${step}">
+                          <h4 class="text-lg font-semibold text-slate-200 mb-4">${q.question_text}</h4>
+                          <div class="space-y-3">${optionsHtml}</div>
+                        </div>`;
+            }).join('');
+
+            const firstStep = dynamicQuizContainer.querySelector('.quiz-step[data-step="1"]');
+            if (firstStep) {
+                const skillsHtml = `
+                    <div class="mb-6">
+                        <h4 class="text-lg font-semibold text-slate-200 mb-2">First, what skills do you already have?</h4>
+                        <p class="text-sm text-slate-400 mb-3">List any relevant skills, technologies, or experience you have. This will help tailor the roadmap.</p>
+                        <textarea id="quizSkillsInput" class="w-full p-3 rounded-lg bg-slate-700 border border-slate-600 text-slate-200 focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., Python, JavaScript, Project Management..."></textarea>
+                    </div>
+                `;
+                firstStep.insertAdjacentHTML('afterbegin', skillsHtml);
+            }
+            
+            quizFooter.classList.remove('hidden');
+            currentQuizStep = 1;
+            showQuizStep(currentQuizStep);
+
+            // Add event listeners for option selection styling
+            dynamicQuizContainer.querySelectorAll('.quiz-step label').forEach(label => {
+                label.addEventListener('click', (e) => {
+                    const input = label.querySelector('input');
+                    if (input.type === 'radio') {
+                         if (!input.checked) {
+                            label.closest('.quiz-step').querySelectorAll('label').forEach(l => l.classList.remove('quiz-option-selected'));
+                            label.classList.add('quiz-option-selected');
+                         }
+                    } else {
+                        label.classList.toggle('quiz-option-selected', !label.classList.contains('quiz-option-selected'));
+                    }
+                });
+            });
+        }
+
+        function showQuizStep(step) {
+            document.querySelectorAll('.quiz-step').forEach(s => s.classList.add('hidden'));
+            const currentStepEl = dynamicQuizContainer.querySelector(`.quiz-step[data-step="${step}"]`);
+            if(currentStepEl) currentStepEl.classList.remove('hidden');
+
+            quizBackBtn.classList.toggle('hidden', step === 1);
+            quizNextBtn.classList.toggle('hidden', step === totalQuizSteps);
+            generatePersonalizedBtn.classList.toggle('hidden', step !== totalQuizSteps);
+        }
+        
+        function handlePersonalization() {
+            const answers = {};
+            
+            const quizSkillsInput = document.getElementById('quizSkillsInput');
+            if (quizSkillsInput && quizSkillsInput.value.trim()) {
+               answers["Existing Skills"] = quizSkillsInput.value.trim();
+            }
+
+            // Final check on the last step
+            const lastStepEl = dynamicQuizContainer.querySelector(`[data-step="${totalQuizSteps}"]`);
+            if (lastStepEl && lastStepEl.querySelectorAll('input:checked').length === 0) {
+                showToast('Please select an option to generate your path.');
+                return;
+            }
+
+            for (let i = 1; i <= totalQuizSteps; i++) {
+                const selectedOptions = document.querySelectorAll(`input[name="q${i}"]:checked`);
+                if (selectedOptions.length > 0) {
+                    const question = selectedOptions[0].dataset.question;
+                    answers[question] = Array.from(selectedOptions).map(option => option.value);
+                }
+            }
+            closeModal(personalizationModal);
+            findPath(answers, true);
+        }
+
+        function showToast(message) {
+            waitToast.textContent = message;
+            waitToast.classList.remove('hidden');
+            waitToast.style.opacity = 1;
+            setTimeout(() => {
+                waitToast.style.opacity = 0;
+                setTimeout(() => {
+                    waitToast.classList.add('hidden');
+                    waitToast.textContent = "Please wait, the AI is generating your path..."; // Reset
+                }, 300);
+            }, 2500);
+        }
+        
+        // --- Event Listeners ---
+        searchBtn.addEventListener('click', () => findPath(null, false)); 
+        roleInput.addEventListener('keyup', (e) => {
+            const items = document.querySelectorAll('.autocomplete-item');
+            if (e.key === 'Enter') {
+                const activeItem = autocompleteList.querySelector('.autocomplete-active');
+                if (activeItem) {
+                    roleInput.value = activeItem.textContent;
+                }
+                autocompleteList.classList.add('hidden');
+                findPath(null, false);
+            } else if (e.key === 'ArrowDown') {
+                if (activeAutocompleteIndex < items.length - 1) activeAutocompleteIndex++;
+                updateAutocompleteActive();
+            } else if (e.key === 'ArrowUp') {
+                if (activeAutocompleteIndex > 0) activeAutocompleteIndex--;
+                updateAutocompleteActive();
+            }
+        });
+        roleInput.addEventListener('input', () => {
+            showAutocomplete(roleInput.value);
+            validationMessage.classList.add('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!roleInput.contains(e.target)) autocompleteList.classList.add('hidden');
+        });
+        
+        startPersonalizationBtn.addEventListener('click', () => {
+            openModal(personalizationModal);
+            generatePersonalizedQuestions();
+        });
+
+        contentBlockerOverlay.addEventListener('click', () => showToast("Please wait for generation to complete..."));
+        headerTitle.addEventListener('click', resetUI);
+        downloadPdfBtn.addEventListener('click', downloadMainRoadmapPDF);
+        downloadAiFeaturePdfBtn.addEventListener('click', downloadAiFeaturePDF);
+        suggestProjectsBtn.addEventListener('click', () => handleAiFeature('projects'));
+        interviewPrepBtn.addEventListener('click', () => handleAiFeature('interview'));
+        aboutLink.addEventListener('click', (e) => { e.preventDefault(); showInfoModal('about'); });
+        howItWorksLink.addEventListener('click', (e) => { e.preventDefault(); showInfoModal('how'); });
+        featuresLink.addEventListener('click', (e) => { e.preventDefault(); showInfoModal('features'); });
+        
+        document.querySelectorAll('.modal-container').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal-container') || e.target.classList.contains('modal-overlay') || e.target.closest('.info-modal-close, .ai-feature-modal-close, .personalization-modal-close')) {
+                    closeModal(modal);
+                }
+            });
+        });
+
+        quizNextBtn.addEventListener('click', () => {
+            const currentStepEl = dynamicQuizContainer.querySelector(`[data-step="${currentQuizStep}"]`);
+            if (currentStepEl.querySelectorAll('input:checked').length === 0) {
+                // The skills input is on step 1, but it's not a radio/checkbox, so this check is for the actual question on step 1
+                const questionInputs = currentStepEl.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+                let isQuestionAnswered = false;
+                for(let input of questionInputs) {
+                    if (input.checked) {
+                        isQuestionAnswered = true;
+                        break;
+                    }
+                }
+                if (!isQuestionAnswered && questionInputs.length > 0) {
+                     showToast('Please select at least one option to continue.');
+                     return;
+                }
+            }
+            if (currentQuizStep < totalQuizSteps) {
+                currentQuizStep++;
+                showQuizStep(currentQuizStep);
+            }
+        });
+
+        quizBackBtn.addEventListener('click', () => {
+            if (currentQuizStep > 1) {
+                currentQuizStep--;
+                showQuizStep(currentQuizStep);
+            }
+        });
+        
+        generatePersonalizedBtn.addEventListener('click', handlePersonalization);
+        
+        countrySelect.addEventListener('change', () => {
+            if (currentRole) fetchJobs(currentRole, countrySelect.value);
+        });
+
+        // --- Mouse Effects ---
+        document.addEventListener('mousemove', e => {
+             document.querySelectorAll('.card, .nav-link, .gradient-text').forEach(el => {
+                const rect = el.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                el.style.setProperty('--x', `${x}px`);
+                el.style.setProperty('--y', `${y}px`);
+            });
+        });
+
+        headerTitle.addEventListener('mouseleave', () => {
+            headerTitle.style.setProperty('--x', `-1000px`);
+            headerTitle.style.setProperty('--y', `-1000px`);
+        });
+
+        // --- Initial Setup ---
+        function initializeApp() {
+            countrySelect.innerHTML = countries.map(country => `<option value="${country.code}">${country.name}</option>`).join('');
+            waitToast.classList.add('hidden');
+        }
+
+        initializeApp();
+
+    </script>
+</body>
+</html>
