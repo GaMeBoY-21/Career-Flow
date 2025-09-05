@@ -584,56 +584,23 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt })
                 });
-
+        
                 const data = await response.json();
-
+        
                 if (!response.ok) {
                     throw new Error(data.error || 'The request to our server failed.');
                 }
-
-                // Many LLM responses are wrapped in ```
-                // Try to locate the textual content robustly
-                // Candidate path for Gemini-like responses
-                let textContent = "";
-
-                if (typeof data === 'string') {
-                    textContent = data;
-                } else if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    textContent = data.candidates[0].content.parts[0].text;
-                } else if (data.text) {
-                    textContent = data.text;
-                } else {
-                    // As fallback try to stringify entire payload
-                    textContent = JSON.stringify(data);
-                }
-
-                // Clean code fences if present
-                textContent = textContent.replace(/^\s*```(?:json|html)?\s*/i, '').replace(/```\s*$/i, '').trim();
-
+        
+                // If a non-JSON response is requested for other features
                 if (!isJson) {
-                    // return HTML/plain text
-                    return textContent;
+                    // This assumes the AI's direct text is embedded in a simple JSON from our function.
+                    // Let's adjust our serverless function to handle this later if needed. For now, we focus on the main JSON.
+                    // A simple approach: if data is just text, return it.
+                    if (typeof data.text === 'string') return data.text;
                 }
-
-                // If expecting JSON, try parsing. Try to be resilient to extra text.
-                try {
-                    return JSON.parse(textContent);
-                } catch (err) {
-                    // Attempt to find the first { ... } block in the text
-                    const match = textContent.match(/\{[\s\S]*\}/);
-                    if (match) {
-                        try {
-                            return JSON.parse(match[0]);
-                        } catch (err2) {
-                            // fallthrough
-                        }
-                    }
-                    // final fallback: return a simple object wrapping text
-                    return {
-                        role_info: { title: "AI Output", description: textContent },
-                        roadmap: [{ title: "Step 1", description: textContent, resources: "" }]
-                    };
-                }
+        
+                return data; // The data is already clean JSON from our serverless function
+        
             } catch (error) {
                 console.error("API call failed:", error);
                 throw new Error(`Failed to get a response from the AI Co-Pilot. Reason: ${error.message}`);
