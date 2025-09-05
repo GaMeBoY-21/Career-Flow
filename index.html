@@ -479,7 +479,7 @@
         async function callGeminiAPI(prompt, isJson = true) {
             try {
                 // Call our own secure function at /api/getCareerPath
-                const response = await fetch('/api/getCareerPath', {
+                const response = await fetch('/api/getcareerpath', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: prompt })
@@ -537,7 +537,7 @@
 
             try {
                 // Call our own secure function at /api/getJobs
-                const response = await fetch('/api/getJobs', {
+                const response = await fetch('/api/getjobs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ role, country })
