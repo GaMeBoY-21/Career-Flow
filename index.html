@@ -540,75 +540,45 @@
         const countrySelect = document.getElementById('countrySelect');
 
         const autocompleteList = document.getElementById('autocomplete-list');
-
-        // Popular roles list (kept as in your original file)
-        const popularRoles = [
-            "Software Engineer", "Frontend Developer", "Backend Developer", "Full Stack Developer", "Mobile App Developer", "iOS Developer", "Android Developer", "DevOps Engineer", "Site Reliability Engineer (SRE)", "Cloud Engineer", "Solutions Architect", "Game Developer", "Embedded Systems Engineer", "AR/VR Developer", "QA Engineer", "Automation Engineer", "Blockchain Developer", "Systems Administrator", "Network Engineer", "Firmware Engineer", "MLOps Engineer", "Robotics Engineer",
-            "Data Scientist", "Data Analyst", "Data Engineer", "Machine Learning Engineer", "AI Engineer", "Business Intelligence (BI) Developer", "Database Administrator (DBA)", "AI Research Scientist", "Data Architect", "Quantitative Analyst", "Statistician", "Decision Scientist", "Data Governance Specialist",
-            "UX/UI Designer", "Product Designer", "User Experience Researcher", "Graphic Designer", "Interaction Designer", "Motion Designer", "Industrial Designer", "Visual Designer", "Illustrator", "UI/UX Writer", "Design Systems Manager", "Creative Technologist", "3D Artist",
-            "Product Manager", "Technical Product Manager", "Product Owner", "Associate Product Manager", "Growth Product Manager", "Product Marketing Manager", "Product Analyst", "Head of Product",
-            "Cybersecurity Analyst", "Information Security Engineer", "Ethical Hacker", "Penetration Tester", "Security Architect", "Cloud Security Engineer", "SOC Analyst", "Incident Responder", "Cryptographer", "Chief Information Security Officer (CISO)",
-            "Business Analyst", "Financial Analyst", "Management Consultant", "Accountant", "Investment Banker", "Actuary", "Economist", "Auditor", "Controller", "Venture Capitalist", "Private Equity Associate", "Trader", "Risk Analyst", "Mergers & Acquisitions (M&A) Analyst", "Credit Analyst",
-            "Digital Marketing Manager", "Content Strategist", "SEO Specialist", "Social Media Manager", "Growth Hacker", "E-commerce Manager", "Affiliate Marketing Manager", "Sales Development Representative (SDR)", "Account Executive", "Brand Manager", "Marketing Analyst", "Public Relations Specialist", "Customer Success Manager", "Chief Marketing Officer (CMO)",
-            "Registered Nurse", "Physician Assistant", "Physical Therapist", "Occupational Therapist", "Speech-Language Pathologist", "Medical Doctor", "Surgeon", "Anesthesiologist", "Dentist", "Pharmacist", "Healthcare Administrator", "Biomedical Engineer", "Medical Laboratory Scientist", "Radiologist", "Optometrist", "Veterinarian", "Chiropractor",
-            "Content Writer", "Copywriter", "Journalist", "Video Editor", "Animator", "Art Director", "Photographer", "Filmmaker", "Sound Designer", "Creative Director", "Technical Writer", "Podcast Producer", "Digital Asset Manager",
-            "Operations Manager", "Supply Chain Analyst", "Human Resources Manager", "Recruiter", "Project Manager", "Scrum Master", "Logistics Manager", "Chief Operating Officer (COO)", "Talent Acquisition Specialist", "Compensation and Benefits Manager", "Organizational Development Specialist",
-            "Research Scientist", "Biologist", "Chemist", "Physicist", "Geologist", "Environmental Scientist", "Astrophysicist", "Microbiologist", "Geneticist", "Marine Biologist", "Lab Technician",
-            "Teacher", "Professor", "Instructional Designer", "Curriculum Developer", "School Principal", "Corporate Trainer", "Academic Advisor", "Admissions Counselor", "Librarian",
-            "Lawyer", "Paralegal", "Judge", "Legal Secretary", "Compliance Officer", "Corporate Counsel", "Intellectual Property (IP) Lawyer", "Contracts Manager",
-            "Mechanical Engineer", "Electrical Engineer", "Civil Engineer", "Aerospace Engineer", "Chemical Engineer", "Materials Engineer", "Petroleum Engineer", "Surveyor", "Industrial Engineer",
-            "Electrician", "Plumber", "Welder", "Carpenter", "HVAC Technician", "Auto Mechanic", "Machinist", "Construction Worker",
-            "Architect", "Interior Designer", "Urban Planner", "Real Estate Agent", "Real Estate Appraiser", "Construction Manager", "Landscape Architect", "Property Manager",
-            "Social Worker", "Psychologist", "Counselor", "Nonprofit Program Manager", "Fundraising Manager", "Community Organizer", "Career Counselor",
-            "Hotel Manager", "Chef", "Sommelier", "Event Planner", "Travel Agent", "Flight Attendant", "Restaurant Manager", "Tour Guide",
-            "Pilot", "Air Traffic Controller", "Flight Engineer", "Urban Mobility Planner", "Logistics Coordinator", "Public Transit Operator",
-            "Police Officer", "Firefighter", "Paramedic", "Diplomat", "Policy Advisor", "Intelligence Analyst", "Public Affairs Specialist",
-            "Agronomist", "Conservation Scientist", "Forest Ranger", "Agricultural Engineer", "Food Scientist", "Horticulturist",
-            "Actor", "Musician", "Dancer", "Museum Curator", "Archivist", "Fine Artist", "Fashion Designer",
-            "Athletic Trainer", "Coach", "Sports Analyst", "Fitness Instructor", "Physical Education Teacher", "Scout"
-        ];
-
+        const popularRoles = [ "Software Engineer", "Frontend Developer", "Backend Developer", "Full Stack Developer", "Mobile App Developer", "iOS Developer", "Android Developer", "DevOps Engineer", "Site Reliability Engineer (SRE)", "Cloud Engineer", "Solutions Architect", "Game Developer", "Embedded Systems Engineer", "AR/VR Developer", "QA Engineer", "Automation Engineer", "Blockchain Developer", "Systems Administrator", "Network Engineer", "Firmware Engineer", "MLOps Engineer", "Robotics Engineer", "Data Scientist", "Data Analyst", "Data Engineer", "Machine Learning Engineer", "AI Engineer", "Business Intelligence (BI) Developer", "Database Administrator (DBA)", "AI Research Scientist", "Data Architect", "Quantitative Analyst", "Statistician", "Decision Scientist", "Data Governance Specialist", "UX/UI Designer", "Product Designer", "User Experience Researcher", "Graphic Designer", "Interaction Designer", "Motion Designer", "Industrial Designer", "Visual Designer", "Illustrator", "UI/UX Writer", "Design Systems Manager", "Creative Technologist", "3D Artist", "Product Manager", "Technical Product Manager", "Product Owner", "Associate Product Manager", "Growth Product Manager", "Product Marketing Manager", "Product Analyst", "Head of Product", "Cybersecurity Analyst", "Information Security Engineer", "Ethical Hacker", "Penetration Tester", "Security Architect", "Cloud Security Engineer", "SOC Analyst", "Incident Responder", "Cryptographer", "Chief Information Security Officer (CISO)", "Business Analyst", "Financial Analyst", "Management Consultant", "Accountant", "Investment Banker", "Actuary", "Economist", "Auditor", "Controller", "Venture Capitalist", "Private Equity Associate", "Trader", "Risk Analyst", "Mergers & Acquisitions (M&A) Analyst", "Credit Analyst", "Digital Marketing Manager", "Content Strategist", "SEO Specialist", "Social Media Manager", "Growth Hacker", "E-commerce Manager", "Affiliate Marketing Manager", "Sales Development Representative (SDR)", "Account Executive", "Brand Manager", "Marketing Analyst", "Public Relations Specialist", "Customer Success Manager", "Chief Marketing Officer (CMO)", "Registered Nurse", "Physician Assistant", "Physical Therapist", "Occupational Therapist", "Speech-Language Pathologist", "Medical Doctor", "Surgeon", "Anesthesiologist", "Dentist", "Pharmacist", "Healthcare Administrator", "Biomedical Engineer", "Medical Laboratory Scientist", "Radiologist", "Optometrist", "Veterinarian", "Chiropractor", "Content Writer", "Copywriter", "Journalist", "Video Editor", "Animator", "Art Director", "Photographer", "Filmmaker", "Sound Designer", "Creative Director", "Technical Writer", "Podcast Producer", "Digital Asset Manager", "Operations Manager", "Supply Chain Analyst", "Human Resources Manager", "Recruiter", "Project Manager", "Scrum Master", "Logistics Manager", "Chief Operating Officer (COO)", "Talent Acquisition Specialist", "Compensation and Benefits Manager", "Organizational Development Specialist", "Research Scientist", "Biologist", "Chemist", "Physicist", "Geologist", "Environmental Scientist", "Astrophysicist", "Microbiologist", "Geneticist", "Marine Biologist", "Lab Technician", "Teacher", "Professor", "Instructional Designer", "Curriculum Developer", "School Principal", "Corporate Trainer", "Academic Advisor", "Admissions Counselor", "Librarian", "Lawyer", "Paralegal", "Judge", "Legal Secretary", "Compliance Officer", "Corporate Counsel", "Intellectual Property (IP) Lawyer", "Contracts Manager", "Mechanical Engineer", "Electrical Engineer", "Civil Engineer", "Aerospace Engineer", "Chemical Engineer", "Materials Engineer", "Petroleum Engineer", "Surveyor", "Industrial Engineer", "Electrician", "Plumber", "Welder", "Carpenter", "HVAC Technician", "Auto Mechanic", "Machinist", "Construction Worker", "Architect", "Interior Designer", "Urban Planner", "Real Estate Agent", "Real Estate Appraiser", "Construction Manager", "Landscape Architect", "Property Manager", "Social Worker", "Psychologist", "Counselor", "Nonprofit Program Manager", "Fundraising Manager", "Community Organizer", "Career Counselor", "Hotel Manager", "Chef", "Sommelier", "Event Planner", "Travel Agent", "Flight Attendant", "Restaurant Manager", "Tour Guide", "Pilot", "Air Traffic Controller", "Flight Engineer", "Urban Mobility Planner", "Logistics Coordinator", "Public Transit Operator", "Police Officer", "Firefighter", "Paramedic", "Diplomat", "Policy Advisor", "Intelligence Analyst", "Public Affairs Specialist", "Agronomist", "Conservation Scientist", "Forest Ranger", "Agricultural Engineer", "Food Scientist", "Horticulturist", "Actor", "Musician", "Dancer", "Museum Curator", "Archivist", "Fine Artist", "Fashion Designer", "Athletic Trainer", "Coach", "Sports Analyst", "Fitness Instructor", "Physical Education Teacher", "Scout" ];
         let activeAutocompleteIndex = -1;
         const waitToast = document.getElementById('wait-toast');
 
         // -------------------------
-        // API / AI helper
+        // API / AI helper - UPDATED AND SIMPLIFIED
         // -------------------------
-        // callGeminiAPI(prompt, isJson=true)
-        // - isJson = true: expect a JSON object returned (parse and return)
-        // - isJson = false: return raw text/html from the model
         async function callGeminiAPI(prompt, isJson = true) {
             try {
-                const response = await fetch('/api/getcareerpath', {
+                // We use the correct camelCase path to our serverless function
+                const response = await fetch('/api/getCareerPath', { 
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt })
                 });
-        
+
                 const data = await response.json();
-        
+
                 if (!response.ok) {
                     throw new Error(data.error || 'The request to our server failed.');
                 }
-        
-                // If a non-JSON response is requested for other features
+                
+                // If asking for HTML for projects/interviews, the serverless function will wrap it in { text: "..." }
                 if (!isJson) {
-                    // This assumes the AI's direct text is embedded in a simple JSON from our function.
-                    // Let's adjust our serverless function to handle this later if needed. For now, we focus on the main JSON.
-                    // A simple approach: if data is just text, return it.
-                    if (typeof data.text === 'string') return data.text;
+                    return data.text;
                 }
-        
-                return data; // The data is already clean JSON from our serverless function
-        
+
+                // The data is already clean, parsed JSON from our serverless function
+                return data; 
+
             } catch (error) {
                 console.error("API call failed:", error);
                 throw new Error(`Failed to get a response from the AI Co-Pilot. Reason: ${error.message}`);
             }
         }
 
+
         // -------------------------
-        // Jobs fetcher (server-side)
+        // Jobs fetcher (server-side) - UPDATED
         // -------------------------
         async function fetchJobs(role, country = "") {
             if (!jsearchFeatureEnabled) {
@@ -621,7 +591,8 @@
             jobPostings.innerHTML = `<div class="flex justify-center items-center p-4"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-400"></div></div>`;
 
             try {
-                const response = await fetch('/api/getjobs', {
+                 // We use the correct camelCase path to our serverless function
+                const response = await fetch('/api/getJobs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ role, country })
@@ -639,6 +610,8 @@
                 jobPostings.innerHTML = `<p class="text-sm text-center text-slate-500">${error.message}</p>`;
             }
         }
+
+        // --- Other functions remain the same as your version ---
 
         // -------------------------
         // Rendering helpers
@@ -658,7 +631,6 @@
         }
 
         function linkifyResources(text) {
-            // Normalize, accept objects/arrays
             if (Array.isArray(text)) text = text.join(", ");
             if (typeof text === "object" && text !== null) {
                 if (text.url) text = text.url;
@@ -667,7 +639,6 @@
             }
             text = String(text || "");
 
-            // match http(s) links and www.
             const urlRegex = /(\b(https?:\/\/|www\.)[^\s<]+)/ig;
             return text.replace(urlRegex, (url) => {
                 let full = url;
@@ -842,7 +813,6 @@
             isPersonalizedGlobal = isPersonalized;
 
             roleTitle.textContent = data?.role_info?.title || currentRole || "Role";
-            // description may be string/array/object
             let desc = data?.role_info?.description || "";
             if (Array.isArray(desc)) desc = desc.join('\n\n');
             else if (typeof desc === 'object') desc = desc.text || desc.body || JSON.stringify(desc);
@@ -894,7 +864,6 @@
             }
 
             try {
-                // Request raw HTML/text from AI
                 const result = await callGeminiAPI(prompt, false);
                 aiFeatureModalContent.innerHTML = result;
                 window[cacheKey] = result;
