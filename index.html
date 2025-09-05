@@ -476,54 +476,55 @@
         const waitToast = document.getElementById('wait-toast');
 
         // --- API Functions (Now calling our secure serverless functions) ---
-        async function callGeminiAPI(prompt, isJson = true) {
-            try {
-                // Call our own secure function at /api/getCareerPath
-                const response = await fetch('/api/getcareerpath', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: prompt })
-                });
+        // --- API Functions (Now calling our secure serverless functions) ---
+async function callGeminiAPI(prompt, isJson = true) {
+    try {
+        // Call our own secure function at /api/getcareerpath
+        const response = await fetch('/api/getcareerpath', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: prompt })
+        });
 
-                const data = await response.json();
+        const data = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(data.error || 'The request to our server failed.');
-                }
-                
-                if (!data.candidates || data.candidates.length === 0) {
-                     if(data.promptFeedback && data.promptFeedback.blockReason){
-                        throw new Error(`The prompt was blocked for reason: ${data.promptFeedback.blockReason}.`);
-                    }
-                    throw new Error("Received no candidates in the response.");
-                }
-                
-                const candidate = data.candidates[0];
-
-                if (!candidate.content || !candidate.content.parts || !candidate.content.parts[0].text) {
-                     if(candidate.finishReason === 'SAFETY') {
-                        throw new Error("The response was blocked due to safety settings.");
-                    }
-                    throw new Error("Received an invalid response structure.");
-                }
-
-                let textContent = candidate.content.parts[0].text;
-
-                if (isJson) {
-                    const cleanedText = textContent.replace(/^```json\s*/, '').replace(/```\s*$/, '').trim();
-                    if (!cleanedText) {
-                        throw new Error("The AI returned an empty JSON string.");
-                    }
-                    return JSON.parse(cleanedText);
-                } else {
-                     return textContent.replace(/^```html\s*/im, '').replace(/```\s*$/im, '');
-                }
-
-            } catch (error) {
-                console.error("API call failed:", error);
-                throw new Error(`Failed to get a response from the AI Co-Pilot. Reason: ${error.message}`);
-            }
+        if (!response.ok) {
+            throw new Error(data.error || 'The request to our server failed.');
         }
+
+        // Safely extract text from Gemini API response
+        const candidate = data.candidates?.[0];
+        const textContent = String(candidate?.content?.parts?.[0]?.text || "");
+
+        if (!textContent) {
+            throw new Error("The AI returned an empty response.");
+        }
+
+        if (isJson) {
+            const cleanedText = textContent
+                .replace(/^```json\s*/i, '')
+                .replace(/```\s*$/i, '')
+                .trim();
+
+            if (!cleanedText) {
+                throw new Error("The AI returned an empty JSON string.");
+            }
+
+            return JSON.parse(cleanedText);
+        } else {
+            return textContent
+                .replace(/^```html\s*/im, '')
+                .replace(/```\s*$/im, '');
+        }
+
+    } catch (error) {
+        console.error("API call failed:", error);
+        throw new Error(
+            `Failed to get a response from the AI Co-Pilot. Reason: ${error.message}`
+        );
+    }
+}
+
 
         async function fetchJobs(role, country = "") {
             if (!jsearchFeatureEnabled) {
