@@ -763,75 +763,45 @@
         // -------------------------
         async function findPath(personalizationData = null, isPersonalized = false) {
             if (searchBtn.disabled) {
-                showToast("Please wait for the current request to finish.");
-                return;
+              showToast("Please wait for the current request to finish.");
+              return;
             }
-
+          
             const role = roleInput.value.trim();
             if (!role) {
-                validationMessage.textContent = "Please enter your target job role to begin.";
-                validationMessage.classList.remove('hidden');
-                return;
+              validationMessage.textContent = "Please enter a role.";
+              validationMessage.classList.remove('hidden');
+              return;
             }
-
-            // UI loading state
-            validationMessage.classList.add('hidden');
+          
+            // UI Loading state
             searchBtn.disabled = true;
             searchBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div><span>Generating...</span>`;
-            contentBlockerOverlay.classList.remove('hidden');
-            mainContentWrapper.classList.add('opacity-60');
-            homeContent.classList.add('hidden');
-            resultsDiv.classList.remove('hidden');
-            errorDiv.classList.add('hidden');
-            contentDiv.classList.add('hidden');
-            personalizationCard.classList.add('hidden');
-            jobsCard.classList.add('hidden');
-
-            cachedProjects = null;
-            cachedInterviewPrep = null;
-
-            // Construct prompt
-            let prompt;
-            if (isPersonalized && personalizationData) {
-                let answersText = Object.entries(personalizationData).map(([key, value]) =>
-                    `- ${key}: ${Array.isArray(value) ? value.join(', ') : value}`
-                ).join('\n');
-
-                prompt = `
-                    Generate a comprehensive, personalized career guide for a "${role}".
-                    The user has provided these answers:
-                    ${answersText}
-
-                    Return a valid JSON object with fields: role_info, timeline_analysis (optional), roadmap (array), top_professionals, github_projects, helpful_resources.
-                `;
-            } else {
-                prompt = `
-                    Generate a comprehensive career guide for a "${role}".
-                    Return a valid JSON object with fields: role_info, roadmap (array), top_professionals, github_projects, helpful_resources.
-                `;
-            }
-
+          
             try {
-                const geminiPromise = callGeminiAPI(prompt, true);
-                const selectedCountry = countrySelect.value;
-                fetchJobs(role, selectedCountry);
-
-                const roadmapData = await geminiPromise;
-                if (roadmapData) {
-                    renderUI(roadmapData, isPersonalized);
-                } else {
-                    throw new Error("AI returned no roadmap data.");
-                }
-            } catch (error) {
-                showError(error.message);
+              const response = await fetch('/api/getCareerPath', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ role, personalizationData, isPersonalized })
+              });
+          
+              const data = await response.json();
+              if (!response.ok) throw new Error(data.error || "Something went wrong");
+          
+              renderUI(data, isPersonalized);
+          
+              // Fetch jobs too
+              fetchJobs(role, countrySelect.value);
+          
+            } catch (err) {
+              showError(err.message);
             } finally {
-                searchBtn.disabled = false;
-                searchBtn.innerHTML = `<span id="button-text">Find Path</span><i id="button-icon" data-lucide="sparkles" class="w-5 h-5"></i>`;
-                contentBlockerOverlay.classList.add('hidden');
-                mainContentWrapper.classList.remove('opacity-60');
-                lucide.createIcons();
+              searchBtn.disabled = false;
+              searchBtn.innerHTML = `<span id="button-text">Find Path</span><i id="button-icon" data-lucide="sparkles" class="w-5 h-5"></i>`;
+              contentBlockerOverlay.classList.add('hidden');
+              mainContentWrapper.classList.remove('opacity-60');
             }
-        }
+          }
 
         // -------------------------
         // Render UI from AI data
