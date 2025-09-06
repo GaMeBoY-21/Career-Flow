@@ -579,33 +579,31 @@
         // - isJson = false: return raw text/html from the model
         async function callGeminiAPI(prompt, isJson = true) {
             try {
-                const response = await fetch('/api/getcareerpath', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt })
-                });
-        
-                const data = await response.json();
-        
-                if (!response.ok) {
-                    throw new Error(data.error || 'The request to our server failed.');
-                }
-        
-                // If a non-JSON response is requested for other features
-                if (!isJson) {
-                    // This assumes the AI's direct text is embedded in a simple JSON from our function.
-                    // Let's adjust our serverless function to handle this later if needed. For now, we focus on the main JSON.
-                    // A simple approach: if data is just text, return it.
-                    if (typeof data.text === 'string') return data.text;
-                }
-        
-                return data; // The data is already clean JSON from our serverless function
-        
+              const response = await fetch('/api/getcareerpath', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt, expectJson: isJson })
+              });
+          
+              if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'The request to our server failed.');
+              }
+          
+              // JSON case
+              if (isJson) {
+                return await response.json();
+              }
+          
+              // Plain text/HTML case
+              return await response.text();
+          
             } catch (error) {
-                console.error("API call failed:", error);
-                throw new Error(`Failed to get a response from the AI Co-Pilot. Reason: ${error.message}`);
+              console.error("API call failed:", error);
+              throw new Error(`Failed to get a response from the AI Co-Pilot. Reason: ${error.message}`);
             }
-        }
+          }
+          
 
         // -------------------------
         // Jobs fetcher (server-side)
@@ -646,7 +644,10 @@
         function renderLinkList(element, items, icon) {
             if (!Array.isArray(items)) items = [];
             element.innerHTML = items.map(item => {
-                const url = item?.url && (String(item.url).startsWith('http://') || String(item.url).startsWith('https://')) ? item.url : '#';
+                let url = item?.url || "";
+                if (url && !/^https?:\/\//i.test(url)) {
+                    url = "https://" + url; // auto-fix missing protocol
+                }
                 const name = item?.name || item?.title || "Unnamed Resource";
                 return `
                     <a href="${url}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 group">
@@ -656,6 +657,7 @@
             }).join('');
             lucide.createIcons();
         }
+        
 
         function linkifyResources(text) {
             // Normalize, accept objects/arrays
@@ -761,88 +763,126 @@
         // -------------------------
         // Main logic: findPath
         // -------------------------
-        async function findPath(personalizationData = null, isPersonalized = false) {
-            if (searchBtn.disabled) {
-                showToast("Please wait for the current request to finish.");
-                return;
+        // --- Main Logic ---
+// --- Main Logic ---
+async function findPath(personalizationData = null, isPersonalized = false) {
+    if (searchBtn.disabled) {
+        showToast("Please wait for the current request to finish.");
+        return;
+    }
+
+    const role = roleInput.value.trim();
+    if (!role) {
+        validationMessage.textContent = "Please enter your target job role to begin.";
+        validationMessage.classList.remove('hidden');
+        return;
+    }
+
+    // --- UI state for loading ---
+    validationMessage.classList.add('hidden');
+    searchBtn.disabled = true;
+    searchBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div><span>Generating...</span>`;
+    contentBlockerOverlay.classList.remove('hidden');
+    mainContentWrapper.classList.add('opacity-60');
+    homeContent.classList.add('hidden');
+    resultsDiv.classList.remove('hidden');
+    errorDiv.classList.add('hidden');
+    contentDiv.classList.add('hidden');
+    personalizationCard.classList.add('hidden');
+    jobsCard.classList.add('hidden');
+
+    cachedProjects = null;
+    cachedInterviewPrep = null;
+
+    // --- Construct API Prompt ---
+    let prompt;
+    if (isPersonalized && personalizationData) {
+        let answersText = Object.entries(personalizationData).map(([key, value]) =>
+            `- ${key}: ${Array.isArray(value) ? value.join(', ') : value}`
+        ).join('\n');
+
+        prompt = `
+            Generate a comprehensive, personalized career guide for a "${role}".
+            The user has provided these answers:
+            ${answersText}
+
+            Your response MUST be ONLY valid JSON with this structure:
+            {
+              "role_info": { "title": "...", "description": "..." },
+              "timeline_analysis": { "is_achievable": <boolean>, "summary": "..." },
+              "roadmap": [ 
+                { "title": "...", "description": "...", "resources": "...", "time_estimate": "..." }
+              ],
+              "top_professionals": [ { "name": "...", "url": "..." } ],
+              "github_projects": [ { "name": "...", "url": "..." } ],
+              "helpful_resources": [ { "title": "...", "url": "..." } ]
             }
-        
-            const role = roleInput.value.trim();
-            if (!role) {
-                validationMessage.textContent = "Please enter your target job role to begin.";
-                validationMessage.classList.remove('hidden');
-                return;
+
+            Rules:
+            - Roadmap MUST include at least 8 detailed steps (preferably 10).
+            - Each step MUST have: title, description, resources (with working links), and a realistic time_estimate.
+            - Provide REAL, valid URLs for professionals (LinkedIn/Twitter), GitHub repos, and helpful resources.
+            - If you cannot find enough, use high-quality placeholders (e.g., https://developer.mozilla.org/, https://github.com/).
+        `;
+    } else {
+        prompt = `
+            Generate a comprehensive career guide for a "${role}".
+
+            Your response MUST be ONLY valid JSON with this structure:
+            {
+              "role_info": { "title": "...", "description": "..." },
+              "roadmap": [ 
+                { "title": "...", "description": "...", "resources": "...", "time_estimate": "..." }
+              ],
+              "top_professionals": [ { "name": "...", "url": "..." } ],
+              "github_projects": [ { "name": "...", "url": "..." } ],
+              "helpful_resources": [ { "title": "...", "url": "..." } ]
             }
-        
-            // --- UI state for loading ---
-            validationMessage.classList.add('hidden');
-            searchBtn.disabled = true;
-            searchBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div><span>Generating...</span>`;
-            contentBlockerOverlay.classList.remove('hidden');
-            mainContentWrapper.classList.add('opacity-60');
-            homeContent.classList.add('hidden');
-            resultsDiv.classList.remove('hidden');
-            errorDiv.classList.add('hidden');
-            contentDiv.classList.add('hidden');
-            personalizationCard.classList.add('hidden');
-            jobsCard.classList.add('hidden');
-        
-            cachedProjects = null;
-            cachedInterviewPrep = null;
-        
-            // --- Construct API Prompt ---
-            let prompt;
-            if (isPersonalized && personalizationData) {
-                let answersText = Object.entries(personalizationData).map(([key, value]) =>
-                    `- ${key}: ${Array.isArray(value) ? value.join(', ') : value}`
-                ).join('\n');
-        
-                prompt = `
-                    Generate a structured and personalized career guide for a "${role}".
-                    User details:
-                    ${answersText}
-        
-                    Return ONLY valid JSON with this structure:
-                    {
-                      "role_info": { "title": "string", "description": "string" },
-                      "roadmap": [{ "title": "string", "description": "string", "resources": "string" }],
-                      "github_projects": [{ "name": "string", "url": "string" }],
-                      "top_professionals": [{ "name": "string", "url": "string" }],
-                      "helpful_resources": [{ "title": "string", "url": "string" }]
-                    }
-                `;
-            } else {
-                prompt = `
-                    Generate a structured career guide for a "${role}".
-        
-                    Return ONLY valid JSON with this structure:
-                    {
-                      "role_info": { "title": "string", "description": "string" },
-                      "roadmap": [{ "title": "string", "description": "string", "resources": "string" }],
-                      "github_projects": [{ "name": "string", "url": "string" }],
-                      "top_professionals": [{ "name": "string", "url": "string" }],
-                      "helpful_resources": [{ "title": "string", "url": "string" }]
-                    }
-                `;
-            }
-        
-            try {
-                const geminiPromise = callGeminiAPI(prompt);
-                const selectedCountry = countrySelect.value;
-                fetchJobs(role, selectedCountry);
-        
-                const roadmapData = await geminiPromise;
-                if (roadmapData) renderUI(roadmapData, isPersonalized);
-            } catch (error) {
-                showError(error.message);
-            } finally {
-                searchBtn.disabled = false;
-                searchBtn.innerHTML = `<span id="button-text">Find Path</span><i id="button-icon" data-lucide="sparkles" class="w-5 h-5"></i>`;
-                contentBlockerOverlay.classList.add('hidden');
-                mainContentWrapper.classList.remove('opacity-60');
-                lucide.createIcons();
-            }
+
+            Rules:
+            - Roadmap MUST include at least 8 detailed steps (preferably 10).
+            - Each step MUST have: title, description, resources (with working links), and a realistic time_estimate.
+            - Provide REAL, valid URLs for professionals (LinkedIn/Twitter), GitHub repos, and helpful resources.
+            - If you cannot find enough, use high-quality placeholders (e.g., https://developer.mozilla.org/, https://github.com/).
+        `;
+    }
+
+    try {
+        // Fetch roadmap + jobs in parallel
+        const geminiPromise = callGeminiAPI(prompt, true);
+        const selectedCountry = countrySelect.value;
+        fetchJobs(role, selectedCountry);
+
+        let roadmapData = await geminiPromise;
+
+        // ✅ Ensure roadmap has minimum 8 steps
+        roadmapData.roadmap = Array.isArray(roadmapData.roadmap) ? roadmapData.roadmap : [];
+        while (roadmapData.roadmap.length < 8) {
+            roadmapData.roadmap.push({
+                title: `Extra Step ${roadmapData.roadmap.length + 1}`,
+                description: "Placeholder step to complete the roadmap.",
+                resources: "https://developer.mozilla.org/",
+                time_estimate: "1-2 weeks"
+            });
         }
+
+        roadmapData.top_professionals = roadmapData.top_professionals || [];
+        roadmapData.github_projects = roadmapData.github_projects || [];
+        roadmapData.helpful_resources = roadmapData.helpful_resources || [];
+
+        if (roadmapData) renderUI(roadmapData, isPersonalized);
+    } catch (error) {
+        showError(error.message);
+    } finally {
+        searchBtn.disabled = false;
+        searchBtn.innerHTML = `<span id="button-text">Find Path</span><i id="button-icon" data-lucide="sparkles" class="w-5 h-5"></i>`;
+        contentBlockerOverlay.classList.add('hidden');
+        mainContentWrapper.classList.remove('opacity-60');
+        lucide.createIcons();
+    }
+}
+
+
 
         // -------------------------
         // Render UI from AI data
@@ -880,37 +920,60 @@
         // -------------------------
         async function handleAiFeature(type) {
             let title = '', prompt = '', cacheKey = null;
-
+        
             if (type === 'projects') {
                 title = `Portfolio Project Ideas for a ${currentRole || 'Candidate'}`;
-                prompt = `Generate 5 unique and impressive portfolio project ideas for an aspiring ${currentRole || 'candidate'}. For each project, provide a title, a 2-3 sentence description, and a list of key technologies to use. Return as a valid HTML string with <h3> for titles, <p> for descriptions, and <ul><li> for technologies.`;
+                prompt = `Generate 5 unique and impressive portfolio project ideas for an aspiring ${currentRole || 'candidate'}. 
+                          For each project, provide a title, a 2-3 sentence description, and a list of key technologies to use. 
+                          Return as a valid HTML string with <h3> for titles, <p> for descriptions, and <ul><li> for technologies.`;
                 cacheKey = 'cachedProjects';
             } else if (type === 'interview') {
                 title = `Interview Prep for a ${currentRole || 'Candidate'}`;
-                prompt = `Generate a list of 10 common interview questions for a ${currentRole || 'candidate'}, split between technical and behavioral questions. For each question, provide a brief, helpful tip for answering. Return the output as a valid HTML string. Use <h3> sections for "Technical Questions" and "Behavioral Questions". For each item, use this structure: <div class="mb-4"><p class="font-semibold text-slate-200">Question: [The Question]</p><p class="text-indigo-300 pl-4"><em>Tip:</em> [The Tip]</p></div>`;
+                prompt = `Generate a list of 10 common interview questions for a ${currentRole || 'candidate'}, 
+                          split between technical and behavioral questions. 
+                          For each question, provide a brief, helpful tip for answering. 
+                          Return the output as a valid HTML string. 
+                          Use <h3> sections for "Technical Questions" and "Behavioral Questions". 
+                          For each item, use this structure: 
+                          <div class="mb-4">
+                              <p class="font-semibold text-slate-200">Question: [The Question]</p>
+                              <p class="text-indigo-300 pl-4"><em>Tip:</em> [The Tip]</p>
+                          </div>`;
                 cacheKey = 'cachedInterviewPrep';
             }
-
+        
             aiFeatureModalTitle.textContent = title;
             openModal(aiFeatureModal);
             aiFeatureModalLoading.classList.remove('hidden');
             aiFeatureModalContent.innerHTML = '';
             downloadAiFeaturePdfBtn.classList.add('hidden');
-
+        
+            // Use cache if available
             if (window[cacheKey]) {
                 aiFeatureModalContent.innerHTML = window[cacheKey];
                 aiFeatureModalLoading.classList.add('hidden');
                 downloadAiFeaturePdfBtn.classList.remove('hidden');
                 return;
             }
-
+        
             try {
-                // Request raw HTML/text from AI
-                const result = await callGeminiAPI(prompt, false);
+                // 🔑 Call serverless API with raw mode
+                const res = await fetch('/api/getcareerpath', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt, expectJson: false })
+                });
+        
+                if (!res.ok) {
+                    throw new Error(`Server error: ${res.status}`);
+                }
+        
+                const result = await res.text(); // plain HTML
                 aiFeatureModalContent.innerHTML = result;
                 window[cacheKey] = result;
                 downloadAiFeaturePdfBtn.classList.remove('hidden');
             } catch (error) {
+                console.error("AI feature failed:", error);
                 aiFeatureModalContent.innerHTML = `<p class="text-red-400">Error generating content: ${error.message}</p>`;
             } finally {
                 aiFeatureModalLoading.classList.add('hidden');
