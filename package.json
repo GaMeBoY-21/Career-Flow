@@ -1,4 +1,9 @@
 {
     "name": "career-flow",
-    "version": "1.0.0"
+    "version": "1.0.0",
+    "dependencies": {
+      "lucide": "^0.294.0",
+      "jspdf": "^2.5.1"
+    }
   }
+  

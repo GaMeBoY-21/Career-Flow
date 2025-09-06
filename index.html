@@ -763,45 +763,86 @@
         // -------------------------
         async function findPath(personalizationData = null, isPersonalized = false) {
             if (searchBtn.disabled) {
-              showToast("Please wait for the current request to finish.");
-              return;
+                showToast("Please wait for the current request to finish.");
+                return;
             }
-          
+        
             const role = roleInput.value.trim();
             if (!role) {
-              validationMessage.textContent = "Please enter a role.";
-              validationMessage.classList.remove('hidden');
-              return;
+                validationMessage.textContent = "Please enter your target job role to begin.";
+                validationMessage.classList.remove('hidden');
+                return;
             }
-          
-            // UI Loading state
+        
+            // --- UI state for loading ---
+            validationMessage.classList.add('hidden');
             searchBtn.disabled = true;
             searchBtn.innerHTML = `<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div><span>Generating...</span>`;
-          
-            try {
-              const response = await fetch('/api/getCareerPath', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ role, personalizationData, isPersonalized })
-              });
-          
-              const data = await response.json();
-              if (!response.ok) throw new Error(data.error || "Something went wrong");
-          
-              renderUI(data, isPersonalized);
-          
-              // Fetch jobs too
-              fetchJobs(role, countrySelect.value);
-          
-            } catch (err) {
-              showError(err.message);
-            } finally {
-              searchBtn.disabled = false;
-              searchBtn.innerHTML = `<span id="button-text">Find Path</span><i id="button-icon" data-lucide="sparkles" class="w-5 h-5"></i>`;
-              contentBlockerOverlay.classList.add('hidden');
-              mainContentWrapper.classList.remove('opacity-60');
+            contentBlockerOverlay.classList.remove('hidden');
+            mainContentWrapper.classList.add('opacity-60');
+            homeContent.classList.add('hidden');
+            resultsDiv.classList.remove('hidden');
+            errorDiv.classList.add('hidden');
+            contentDiv.classList.add('hidden');
+            personalizationCard.classList.add('hidden');
+            jobsCard.classList.add('hidden');
+        
+            cachedProjects = null;
+            cachedInterviewPrep = null;
+        
+            // --- Construct API Prompt ---
+            let prompt;
+            if (isPersonalized && personalizationData) {
+                let answersText = Object.entries(personalizationData).map(([key, value]) =>
+                    `- ${key}: ${Array.isArray(value) ? value.join(', ') : value}`
+                ).join('\n');
+        
+                prompt = `
+                    Generate a structured and personalized career guide for a "${role}".
+                    User details:
+                    ${answersText}
+        
+                    Return ONLY valid JSON with this structure:
+                    {
+                      "role_info": { "title": "string", "description": "string" },
+                      "roadmap": [{ "title": "string", "description": "string", "resources": "string" }],
+                      "github_projects": [{ "name": "string", "url": "string" }],
+                      "top_professionals": [{ "name": "string", "url": "string" }],
+                      "helpful_resources": [{ "title": "string", "url": "string" }]
+                    }
+                `;
+            } else {
+                prompt = `
+                    Generate a structured career guide for a "${role}".
+        
+                    Return ONLY valid JSON with this structure:
+                    {
+                      "role_info": { "title": "string", "description": "string" },
+                      "roadmap": [{ "title": "string", "description": "string", "resources": "string" }],
+                      "github_projects": [{ "name": "string", "url": "string" }],
+                      "top_professionals": [{ "name": "string", "url": "string" }],
+                      "helpful_resources": [{ "title": "string", "url": "string" }]
+                    }
+                `;
             }
-          }
+        
+            try {
+                const geminiPromise = callGeminiAPI(prompt);
+                const selectedCountry = countrySelect.value;
+                fetchJobs(role, selectedCountry);
+        
+                const roadmapData = await geminiPromise;
+                if (roadmapData) renderUI(roadmapData, isPersonalized);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                searchBtn.disabled = false;
+                searchBtn.innerHTML = `<span id="button-text">Find Path</span><i id="button-icon" data-lucide="sparkles" class="w-5 h-5"></i>`;
+                contentBlockerOverlay.classList.add('hidden');
+                mainContentWrapper.classList.remove('opacity-60');
+                lucide.createIcons();
+            }
+        }
 
         // -------------------------
         // Render UI from AI data
