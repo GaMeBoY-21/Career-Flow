@@ -643,20 +643,28 @@
         // -------------------------
         function renderLinkList(element, items, icon) {
             if (!Array.isArray(items)) items = [];
+        
             element.innerHTML = items.map(item => {
                 let url = item?.url || "";
+                let name = item?.name || item?.title || "Unnamed Resource";
+        
+                // Auto-fix missing protocol
                 if (url && !/^https?:\/\//i.test(url)) {
-                    url = "https://" + url; // auto-fix missing protocol
+                    url = "https://" + url;
                 }
-                const name = item?.name || item?.title || "Unnamed Resource";
+        
                 return `
                     <a href="${url}" target="_blank" rel="noopener noreferrer" class="flex items-start gap-3 group">
                         <i data-lucide="${icon}" class="w-4 h-4 text-indigo-400 mt-1 flex-shrink-0"></i>
                         <span class="text-slate-400 text-sm group-hover:text-indigo-300 transition-colors">${name}</span>
-                    </a>`;
+                    </a>
+                `;
             }).join('');
+        
+            // Re-render Lucide icons after updating DOM
             lucide.createIcons();
         }
+        
         
 
         function linkifyResources(text) {
@@ -765,6 +773,7 @@
         // -------------------------
         // --- Main Logic ---
 // --- Main Logic ---
+// --- Main Logic ---
 async function findPath(personalizationData = null, isPersonalized = false) {
     if (searchBtn.disabled) {
         showToast("Please wait for the current request to finish.");
@@ -819,10 +828,21 @@ async function findPath(personalizationData = null, isPersonalized = false) {
             }
 
             Rules:
-            - Roadmap MUST include at least 8 detailed steps (preferably 10).
-            - Each step MUST have: title, description, resources (with working links), and a realistic time_estimate.
-            - Provide REAL, valid URLs for professionals (LinkedIn/Twitter), GitHub repos, and helpful resources.
-            - If you cannot find enough, use high-quality placeholders (e.g., https://developer.mozilla.org/, https://github.com/).
+            - Roadmap MUST include at least 8–10 steps.
+            - Each roadmap step MUST have:
+                • A clear title.  
+                • A description of at least 4–6 sentences (NOT just 1 line).  
+                • Explain why this step matters and what to learn.  
+                • At least one resource link.  
+                • A realistic time_estimate.  
+            - Provide AT LEAST 4 valid GitHub repositories with working links (use popular repos, real URLs only).
+            - Provide AT LEAST 4 top professionals with real LinkedIn or Twitter profiles (no fake placeholders).
+            - Provide AT LEAST 4 helpful resources with valid links (e.g., MDN, Coursera, freeCodeCamp, official docs).
+            - All links MUST start with https:// and MUST be working real URLs.
+            - If real links cannot be found, use safe defaults like:
+                • GitHub: https://github.com/karpathy/minGPT, https://github.com/fastai/fastbook  
+                • Professionals: https://www.linkedin.com/in/andrew-ng/, https://twitter.com/karpathy  
+                • Resources: https://developer.mozilla.org/, https://www.coursera.org/, https://www.freecodecamp.org/, https://towardsdatascience.com/  
         `;
     } else {
         prompt = `
@@ -840,10 +860,21 @@ async function findPath(personalizationData = null, isPersonalized = false) {
             }
 
             Rules:
-            - Roadmap MUST include at least 8 detailed steps (preferably 10).
-            - Each step MUST have: title, description, resources (with working links), and a realistic time_estimate.
-            - Provide REAL, valid URLs for professionals (LinkedIn/Twitter), GitHub repos, and helpful resources.
-            - If you cannot find enough, use high-quality placeholders (e.g., https://developer.mozilla.org/, https://github.com/).
+            - Roadmap MUST include at least 8–10 steps.
+            - Each roadmap step MUST have:
+                • A clear title.  
+                • A description of at least 4–6 sentences (NOT just 1 line).  
+                • Explain why this step matters and what to learn.  
+                • At least one resource link.  
+                • A realistic time_estimate.  
+            - Provide AT LEAST 4 valid GitHub repositories with working links (use popular repos, real URLs only).
+            - Provide AT LEAST 4 top professionals with real LinkedIn or Twitter profiles (no fake placeholders).
+            - Provide AT LEAST 4 helpful resources with valid links (e.g., MDN, Coursera, freeCodeCamp, official docs).
+            - All links MUST start with https:// and MUST be working real URLs.
+            - If real links cannot be found, use safe defaults like:
+                • GitHub: https://github.com/karpathy/minGPT, https://github.com/fastai/fastbook  
+                • Professionals: https://www.linkedin.com/in/andrew-ng/, https://twitter.com/karpathy  
+                • Resources: https://developer.mozilla.org/, https://www.coursera.org/, https://www.freecodecamp.org/, https://towardsdatascience.com/  
         `;
     }
 
@@ -860,7 +891,7 @@ async function findPath(personalizationData = null, isPersonalized = false) {
         while (roadmapData.roadmap.length < 8) {
             roadmapData.roadmap.push({
                 title: `Extra Step ${roadmapData.roadmap.length + 1}`,
-                description: "Placeholder step to complete the roadmap.",
+                description: "Placeholder step to complete the roadmap. Expand this with detailed learning activities and resources.",
                 resources: "https://developer.mozilla.org/",
                 time_estimate: "1-2 weeks"
             });
@@ -881,6 +912,7 @@ async function findPath(personalizationData = null, isPersonalized = false) {
         lucide.createIcons();
     }
 }
+
 
 
 
