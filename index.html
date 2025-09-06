@@ -1178,6 +1178,8 @@ async function findPath(personalizationData = null, isPersonalized = false) {
                 { "question_text": "What is your target timeframe to be job-ready?", "options": ["Less than 3 months", "3-6 months", "6-12 months", "More than a year"], "type": "single" }
 
                 Return a valid JSON object: { "questions": [ { "question_text": "...", "options": [...], "type": "single|multiple" } ] }
+                Return ONLY valid JSON. Do not include explanations or markdown fences. Start directly with { "questions": [...] }
+
             `;
             try {
                 const data = await callGeminiAPI(prompt, true);

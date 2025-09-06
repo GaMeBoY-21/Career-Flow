@@ -48,23 +48,27 @@ export default async function handler(request, response) {
         throw new Error("AI response was empty or in an unexpected format.");
       }
   
-      // --- CASE 1: JSON expected (roadmap, career path) ---
+      // --- CASE 1: JSON expected (roadmap, career path, quiz) ---
       if (expectJson) {
+        // Clean markdown fences
         const cleanedText = textContent
-          .replace(/^\s*```json\s*/i, "")
-          .replace(/```\s*$/i, "")
+          .replace(/```json/i, "")
+          .replace(/```/g, "")
           .trim();
   
-        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
-  
-        if (!jsonMatch) {
+        // Extract JSON between first { and last }
+        const start = cleanedText.indexOf("{");
+        const end = cleanedText.lastIndexOf("}");
+        if (start === -1 || end === -1) {
           return response
             .status(500)
             .json({ error: "No valid JSON found in AI response." });
         }
   
+        const jsonString = cleanedText.substring(start, end + 1);
+  
         try {
-          const jsonData = JSON.parse(jsonMatch[0]);
+          const jsonData = JSON.parse(jsonString);
   
           // --- Guarantee required fields ---
           return response.status(200).json({
@@ -73,10 +77,11 @@ export default async function handler(request, response) {
             github_projects: jsonData.github_projects || [],
             top_professionals: jsonData.top_professionals || [],
             helpful_resources: jsonData.helpful_resources || [],
-            timeline_analysis: jsonData.timeline_analysis || null, // ✅ Added field
+            timeline_analysis: jsonData.timeline_analysis || null,
+            questions: jsonData.questions || [], // ✅ for quiz responses
           });
         } catch (e) {
-          console.error("JSON parse failed:", cleanedText);
+          console.error("JSON parse failed:", jsonString);
           return response
             .status(500)
             .json({ error: "AI returned invalid JSON format." });
